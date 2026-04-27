@@ -38,7 +38,8 @@ async function CABT_signInWithGoogle() {
     provider: 'google',
     options: {
       redirectTo: window.location.href,
-      queryParams: { hd: 'groundstandard.com' },
+      // Invite-only: any email Bobby added to `invites` can sign in,
+      // regardless of Google Workspace domain. No `hd` hint here.
     },
   });
   if (error) throw error;
