@@ -421,5 +421,3 @@ function LogSurveyForm({ state, ca, theme, presetClientId, navigate, onSubmit })
 }
 
 Object.assign(window, { LogMetricsForm, LogEventForm, LogSurveyForm, StickyBar });
-
-Task 1: CA Log Monthly Metric save → Supabase (MM-UUID, direct update on edit)
