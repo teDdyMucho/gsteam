@@ -9,7 +9,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "fontScale": 1.0,
   "demoOffline": false,
   "showSavedToast": true,
-  "apiMode": "local",
+  "apiMode": "supabase",
   "apiUrl": ""
 }/*EDITMODE-END*/;
 
@@ -258,7 +258,7 @@ function App() {
             fontFamily: theme.serif, fontWeight: 700, fontSize: 14, letterSpacing: -0.5,
           }}>G</div>
           <div style={{ flex: 1, fontSize: 12, color: theme.inkMuted, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>
-            CA Bonus Tracker
+            gsTeam Scoreboard
           </div>
           <ThemeToggle
             isDark={t.theme === 'athletic'}
@@ -446,59 +446,14 @@ function App() {
       `}</style>
 
       {useFrame ? (
-        <div style={{ display: 'flex', gap: 32, alignItems: 'flex-start', flexDirection: isTablet ? 'column' : 'row' }}>
-          <IOSDevice width={402} height={874} dark={t.theme === 'athletic'}>
-            <Body width={402} height={874} isPhone={true}/>
-          </IOSDevice>
-          <DesktopAside theme={theme} state={state} role={role} onResetData={resetData}/>
-        </div>
+        <IOSDevice width={402} height={874} dark={t.theme === 'athletic'}>
+          <Body width={402} height={874} isPhone={true}/>
+        </IOSDevice>
       ) : (
         <div style={{ width: '100%', height: '100vh', maxHeight: '100vh' }}>
           <Body width="100%" height="100vh" isPhone={false}/>
         </div>
       )}
-
-      {/* Tweaks panel */}
-      <TweaksPanel title="Tweaks">
-        <TweakSection label="Brand"/>
-        <TweakRadio label="Direction" value={t.theme} options={[
-          { value: 'editorial', label: 'Editorial' },
-          { value: 'athletic',  label: 'Athletic' },
-          { value: 'fintech',   label: 'Fintech' },
-        ]} onChange={(v) => {
-          // Reset accent to theme default when switching
-          setTweak({ theme: v, accentColor: THEMES[v].accent });
-        }}/>
-        <TweakColor label="Accent" value={t.accentColor} onChange={(v) => setTweak('accentColor', v)}/>
-        <TweakSection label="Layout"/>
-        <TweakToggle label="Show iPhone frame" value={t.showFrame} onChange={(v) => setTweak('showFrame', v)}/>
-        <TweakSlider label="Font scale" value={t.fontScale} min={0.85} max={1.2} step={0.05} unit="×" onChange={(v) => setTweak('fontScale', v)}/>
-        <TweakSection label="Scorecard viz"/>
-        <TweakRadio label="Style" value={t.scorecardViz} options={[
-          { value: 'rings',   label: 'Rings' },
-          { value: 'bars',    label: 'Bars' },
-          { value: 'compose', label: 'Composite' },
-        ]} onChange={(v) => setTweak('scorecardViz', v)}/>
-        <TweakSection label="Data source"/>
-        <TweakRadio label="Mode" value={t.apiMode} options={[
-          { value: 'local',    label: 'Local demo' },
-          { value: 'sheet',    label: 'Sheet' },
-          { value: 'supabase', label: 'Supabase' },
-        ]} onChange={(v) => {
-          setTweak('apiMode', v); CABT_setApiMode(v);
-          showToast(v === 'supabase' ? 'Supabase mode — sign in' : v === 'sheet' ? 'Sheet mode' : 'Local mode');
-        }}/>
-        {t.apiMode === 'sheet' && (
-          <TweakText label="Apps Script URL" value={t.apiUrl} placeholder="https://script.google.com/macros/s/.../exec" onChange={(v) => { setTweak('apiUrl', v); CABT_setApiUrl(v); }}/>
-        )}
-        {t.apiMode === 'supabase' && authedProfile && (
-          <TweakButton label={`Sign out (${authedProfile.email})`} onClick={async () => { await CABT_signOut(); setAuthedSession(null); setAuthedProfile(null); }} secondary/>
-        )}
-        <TweakSection label="Demo"/>
-        <TweakToggle label="Simulate offline" value={t.demoOffline} onChange={(v) => setTweak('demoOffline', v)}/>
-        <TweakToggle label='"Saved" toast' value={t.showSavedToast} onChange={(v) => setTweak('showSavedToast', v)}/>
-        <TweakButton label="Reset sample data" onClick={resetData} secondary/>
-      </TweaksPanel>
     </div>
   );
 }
@@ -618,49 +573,5 @@ function UserPicker({ value, onChange, users, theme }) {
   );
 }
 
-function DesktopAside({ theme, state, role, onResetData }) {
-  return (
-    <div style={{
-      width: 320, padding: 24, fontFamily: theme.sans, color: theme.ink,
-      maxWidth: 320,
-    }}>
-      <div style={{ fontFamily: theme.serif, fontSize: 32, fontWeight: 600, letterSpacing: -0.5, lineHeight: 1.1, color: theme.ink }}>
-        CA Bonus<br/>Tracker
-      </div>
-      <div style={{ fontSize: 13, color: theme.inkSoft, marginTop: 10, lineHeight: 1.55, fontFamily: theme.serif, fontStyle: 'italic' }}>
-        A mobile-first front for the GroundStandard scorecard sheet. Same app, three roles. Real validation, optimistic saves, offline tolerance.
-      </div>
-      <div style={{ height: 1, background: theme.rule, margin: '24px 0' }}/>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: theme.inkMuted, marginBottom: 10 }}>
-        Live data
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Stat theme={theme} k="Clients" v={state.clients.length}/>
-        <Stat theme={theme} k="CAs" v={state.cas.length}/>
-        <Stat theme={theme} k="Reps" v={state.sales.length}/>
-        <Stat theme={theme} k="Metrics rows" v={state.monthlyMetrics.length}/>
-        <Stat theme={theme} k="Events" v={state.growthEvents.length}/>
-        <Stat theme={theme} k="Surveys" v={state.surveys.length}/>
-      </div>
-      <div style={{ height: 1, background: theme.rule, margin: '24px 0' }}/>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: theme.inkMuted, marginBottom: 10 }}>
-        Try it
-      </div>
-      <ul style={{ fontSize: 13, color: theme.inkSoft, paddingLeft: 18, margin: 0, lineHeight: 1.6 }}>
-        <li>Switch role at top-right</li>
-        <li>Switch CA — see different books</li>
-        <li>Tap "Today's prompts" → log a month</li>
-        <li>Try logging the same month twice</li>
-        <li>Toggle offline in Tweaks → save → sync</li>
-      </ul>
-      <div style={{ height: 1, background: theme.rule, margin: '24px 0' }}/>
-      <button onClick={onResetData} style={{
-        background: 'transparent', border: `1px solid ${theme.rule}`, padding: '8px 14px',
-        borderRadius: 8, color: theme.inkSoft, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-        fontFamily: 'inherit',
-      }}>Reset sample data</button>
-    </div>
-  );
-}
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
