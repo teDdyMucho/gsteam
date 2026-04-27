@@ -446,8 +446,8 @@ function AdminClientCalc({ state, theme, clientId, navigate }) {
           <KV theme={theme} label="Term"       value={`${c.termMonths} months`} />
           <KV theme={theme} label="Retainer"   value={`${CABT_fmtMoney(c.monthlyRetainer)}/mo`} />
           <KV theme={theme} label="Membership" value={c.hasMembershipAddon ? `Yes · ${CABT_fmtDate(c.membershipStartDate)}` : '—'} />
-          <KV theme={theme} label="AE"         value={state.sales.find(s => s.id === c.ae)?.name || '—'} />
-          <KV theme={theme} label="SDR"        value={state.sales.find(s => s.id === c.sdrBookedBy)?.name || '—'} last />
+          <KV theme={theme} label="Account Manager"           value={state.sales.find(s => s.id === c.ae)?.name || '—'} />
+          <KV theme={theme} label="Relationship Dev Rep"      value={state.sales.find(s => s.id === c.sdrBookedBy)?.name || '—'} last />
         </Card>
       </div>
     </div>
@@ -695,8 +695,15 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
   const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   const cas  = state.cas.filter(c => c.active).map(c => ({ value: c.id, label: c.name }));
-  const aes  = state.sales.filter(s => s.role === 'AE').map(s => ({ value: s.id, label: s.name }));
-  const sdrs = [{ value: '', label: 'None' }, ...state.sales.filter(s => s.role === 'SDR').map(s => ({ value: s.id, label: s.name }))];
+  // Account Manager (legacy 'AE' kept for migration period)
+  const aes  = state.sales.filter(s => s.role === 'AM' || s.role === 'AE')
+                          .map(s => ({ value: s.id, label: s.name }));
+  // Relationship Development Rep (legacy 'SDR' kept for migration period)
+  const sdrs = [
+    { value: '', label: 'None' },
+    ...state.sales.filter(s => s.role === 'RDR' || s.role === 'SDR')
+                  .map(s => ({ value: s.id, label: s.name })),
+  ];
 
   const newId = nextClientId(state.clients);
 
@@ -718,36 +725,67 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
     return Object.keys(e).length === 0;
   };
 
-  const submit = () => {
-    if (!validate()) return;
-    onSubmit({
+  const [busy, setBusy] = React.useState(false);
+  const [rootErr, setRootErr] = React.useState(null);
+
+  const submit = async () => {
+    if (!validate() || busy) return;
+    setBusy(true); setRootErr(null);
+
+    // NOTE: keys are camelCase with single-cap-after-lowercase so api.jsx's
+    // camelToSnake converts cleanly (e.g. assignedCa → assigned_ca, NOT
+    // assignedCA → assigned_c_a). app-shell's local-mode submitClient mirrors
+    // assignedCa back to assignedCA in state for legacy UI consumers.
+    const row = {
       id: newId,
       name: form.name.trim(),
-      stripeCustomerId: form.stripeCustomerId,
-      stripeId: form.stripeCustomerId, // legacy alias used by older code
-      ghlContactId: form.ghlContactId,
-      assignedCA: form.assignedCA,
-      signDate: form.signDate,
-      cancelDate: '',
-      monthlyRetainer: Number(form.monthlyRetainer),
-      hasMembershipAddon: form.hasMembershipAddon,
-      membershipStartDate: form.hasMembershipAddon ? form.membershipStartDate : '',
-      termMonths: Number(form.termMonths),
-      ae: form.ae,
-      sdrBookedBy: form.sdrBookedBy,
-      upfrontPct: Number(form.upfrontPct),
-      midPct: Number(form.midPct),
-      endPct: Number(form.endPct),
-      stripeTruthMode: form.stripeTruthMode,
-      source: presetFromStripe ? 'stripe' : 'manual',
-      createdBy: 'Admin',
-      createdAt: CABT_todayIso(),
-      notes: form.notes,
-    });
+      stripeCustomerId: form.stripeCustomerId || null,
+      ghlContactId:     form.ghlContactId || null,
+      assignedCa:       form.assignedCA || null,    // canonical (camel→snake-safe)
+      signDate:         form.signDate,
+      cancelDate:       null,
+      monthlyRetainer:  Number(form.monthlyRetainer),
+      hasMembershipAddon: !!form.hasMembershipAddon,
+      membershipStartDate: form.hasMembershipAddon ? form.membershipStartDate : null,
+      termMonths:       Number(form.termMonths),
+      ae:               form.ae || null,            // legacy column; UI = Account Manager
+      sdrBookedBy:      form.sdrBookedBy || null,   // legacy column; UI = Relationship Dev Rep
+      upfrontPct:       Number(form.upfrontPct),
+      midPct:           Number(form.midPct),
+      endPct:           Number(form.endPct),
+      stripeTruthMode:  form.stripeTruthMode,
+      notes:            form.notes,
+    };
+
+    try {
+      let saved = row;
+      if (CABT_getApiMode() === 'supabase') {
+        // Insert the active client first
+        saved = await CABT_api.submitClient(row);
+        // If this came from the pending queue, mark the pending row as approved
+        if (presetFromStripe && presetFromStripe.id) {
+          const sb = await CABT_sb();
+          const { data: { user } } = await sb.auth.getUser();
+          await sb.from('pending_clients').update({
+            status:      'approved',
+            approved_as: saved.id || row.id,
+            approved_at: new Date().toISOString(),
+            approved_by: user?.id || null,
+          }).eq('id', presetFromStripe.id);
+        }
+      }
+      // Local-mode submitClient in app-shell already handles pending state mirror.
+      onSubmit({ ...saved, source: presetFromStripe ? 'stripe' : 'manual' });
+    } catch (e) {
+      console.error('submitClient failed:', e);
+      setRootErr(e?.message || 'Save failed');
+      setBusy(false);
+    }
   };
 
   return (
     <div style={{ padding: '12px 16px 120px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {rootErr && <Banner tone="error" icon="alert" theme={theme}>{rootErr}</Banner>}
       {presetFromStripe ? (
         <Banner tone="warning" icon="alert" theme={theme}>
           <strong>Pending from Stripe.</strong> Review the prefilled details, assign a CA, then approve to add this client to the active book.
@@ -806,12 +844,12 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
 
       <Card theme={theme} padding={14}>
         <SectionLabel theme={theme}>Sales credit</SectionLabel>
-        <Field label="AE" theme={theme}>
+        <Field label="Account Manager" theme={theme}>
           <Select value={form.ae} onChange={(v) => setForm({ ...form, ae: v })}
             options={[{ value: '', label: '— none —' }, ...aes]} theme={theme}/>
         </Field>
         <div style={{ height: 10 }}/>
-        <Field label="SDR who booked" theme={theme}>
+        <Field label="Relationship Development Rep (booked by)" theme={theme}>
           <Select value={form.sdrBookedBy} onChange={(v) => setForm({ ...form, sdrBookedBy: v })}
             options={sdrs} theme={theme}/>
         </Field>
@@ -885,18 +923,44 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
 
       <StickyBar theme={theme}>
         <Button theme={theme} variant="secondary" onClick={() => navigate('back')}>Cancel</Button>
-        <Button theme={theme} variant="primary" fullWidth onClick={submit}>
-          {presetFromStripe ? 'Approve & add' : `Add ${newId}`}
+        <Button theme={theme} variant="primary" fullWidth disabled={busy} onClick={submit}>
+          {busy ? 'Saving…' : presetFromStripe ? 'Approve & add' : `Add ${newId}`}
         </Button>
       </StickyBar>
     </div>
   );
 }
 
-// ── Pending Clients (Stripe queue) ──────────────────────────────────────────
-// Empty for now; populated by the Stripe webhook in the future.
+// ── Pending Clients (Stripe + manual queue) ────────────────────────────────
+// Approve takes admin to AdminAddClient prefilled; Reject is one-click.
 function AdminPendingClients({ state, theme, navigate }) {
-  const pending = (state.pendingClients || []).filter(p => p.status === 'pending');
+  const [busy, setBusy] = React.useState(null);
+  const [localStatus, setLocalStatus] = React.useState({}); // id -> 'rejected' for instant feedback
+  const pending = (state.pendingClients || []).filter(p =>
+    p.status === 'pending' && localStatus[p.id] !== 'rejected'
+  );
+
+  const reject = async (p) => {
+    setBusy(p.id);
+    try {
+      if (CABT_getApiMode() === 'supabase') {
+        const sb = await CABT_sb();
+        const { data: { user } } = await sb.auth.getUser();
+        const { error } = await sb.from('pending_clients').update({
+          status:       'rejected',
+          rejected_at:  new Date().toISOString(),
+          rejected_by:  user?.id || null,
+        }).eq('id', p.id);
+        if (error) throw error;
+      }
+      setLocalStatus(s => ({ ...s, [p.id]: 'rejected' }));
+    } catch (e) {
+      console.error('reject failed:', e);
+      alert(e?.message || 'Reject failed');
+    }
+    setBusy(null);
+  };
+
   return (
     <div style={{ padding: '8px 16px 100px', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Banner tone="info" icon="alert" theme={theme}>
@@ -922,15 +986,21 @@ function AdminPendingClients({ state, theme, navigate }) {
         <Card key={p.id} theme={theme} padding={14}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: theme.ink }}>{p.name}</div>
-            <div style={{ fontSize: 11, color: theme.inkMuted, fontFamily: theme.mono }}>{p.stripeCustomerId}</div>
+            {p.stripeCustomerId && (
+              <div style={{ fontSize: 11, color: theme.inkMuted, fontFamily: theme.mono }}>{p.stripeCustomerId}</div>
+            )}
           </div>
           <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 12 }}>
-            Stripe · ${p.monthlyRetainer}/mo · started {CABT_fmtDate(p.signDate)}
+            {(p.source || 'stripe')} · {CABT_fmtMoney(p.monthlyRetainer)}/mo · started {CABT_fmtDate(p.signDate)}
           </div>
-          <Button theme={theme} variant="primary" size="sm" fullWidth
-            onClick={() => navigate('add-client', { presetFromStripe: p })}>
-            Review & approve
-          </Button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button theme={theme} variant="secondary" size="sm" disabled={busy === p.id}
+                    onClick={() => reject(p)}>Reject</Button>
+            <Button theme={theme} variant="primary" size="sm" fullWidth disabled={busy === p.id}
+                    onClick={() => navigate('add-client', { presetFromStripe: p })}>
+              Review &amp; approve
+            </Button>
+          </div>
         </Card>
       ))}
     </div>
@@ -944,7 +1014,7 @@ function AdminMore({ theme, navigate }) {
     { name: 'pending-clients', icon: 'cash', label: 'Pending Clients', desc: 'Approve new Stripe customers' },
     { name: 'questions', icon: 'alert', label: 'Open Questions',  desc: 'Decisions pending leadership' },
     { name: 'config',    icon: 'cog',   label: 'Config',          desc: 'Scoring thresholds & quarter window' },
-    { name: 'roster',    icon: 'user',  label: 'Roster',          desc: 'CAs, AEs, SDRs' },
+    { name: 'roster',    icon: 'user',  label: 'Roster',          desc: 'CAs, Account Managers, Relationship Dev Reps' },
   ];
   return (
     <div style={{ padding: '8px 16px 100px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -970,7 +1040,7 @@ function AdminMore({ theme, navigate }) {
         ))}
       </Card>
       <div style={{ fontSize: 11, color: theme.inkMuted, textAlign: 'center', padding: '12px 0', letterSpacing: 0.4 }}>
-        CA Bonus Tracker · Admin · v0.2
+        gsTeam Scoreboard · Admin · v0.2
       </div>
     </div>
   );
