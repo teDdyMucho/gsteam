@@ -4,7 +4,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "theme": "athletic",
   "accentColor": "#E8FF5A",
   "scorecardViz": "bars",
-  "showFrame": true,
+  "showFrame": false,
   "density": "regular",
   "fontScale": 1.0,
   "demoOffline": false,
@@ -256,7 +256,7 @@ function App() {
             fontFamily: theme.serif, fontWeight: 700, fontSize: 14, letterSpacing: -0.5,
           }}>G</div>
           <div style={{ flex: 1, fontSize: 12, color: theme.inkMuted, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>
-            CA Bonus Tracker
+            gsTeam Scoreboard
           </div>
           <ThemeToggle
             isDark={t.theme === 'athletic'}
@@ -623,10 +623,10 @@ function DesktopAside({ theme, state, role, onResetData }) {
       maxWidth: 320,
     }}>
       <div style={{ fontFamily: theme.serif, fontSize: 32, fontWeight: 600, letterSpacing: -0.5, lineHeight: 1.1, color: theme.ink }}>
-        CA Bonus<br/>Tracker
+        gsTeam<br/>Scoreboard
       </div>
       <div style={{ fontSize: 13, color: theme.inkSoft, marginTop: 10, lineHeight: 1.55, fontFamily: theme.serif, fontStyle: 'italic' }}>
-        A mobile-first front for the GroundStandard scorecard sheet. Same app, three roles. Real validation, optimistic saves, offline tolerance.
+        Gamify good work. Track scorecards, commissions, and approvals across the GroundStandard team.
       </div>
       <div style={{ height: 1, background: theme.rule, margin: '24px 0' }}/>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: theme.inkMuted, marginBottom: 10 }}>
