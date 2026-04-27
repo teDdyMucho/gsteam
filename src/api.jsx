@@ -3,7 +3,6 @@
 //   - 'sheet':    legacy Google Apps Script Web App (CABT_API_URL)
 //   - 'supabase': production backend (CABT_SUPABASE_URL + CABT_SUPABASE_ANON_KEY)
 
-// ── Project credentials ──────────────────────────────────────────────────
 const CABT_SUPABASE_URL      = 'https://wlaebsifygvnoyridobr.supabase.co';
 const CABT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsYWVic2lmeWd2bm95cmlkb2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzE4MDgsImV4cCI6MjA5MDkwNzgwOH0.QxNBZWVf7_uA8WQFxSsJbFCqt26bUHOioQXfLt_4zLY';
 
@@ -18,8 +17,6 @@ function CABT_getApiUrl() {
 }
 function CABT_setApiUrl(u) { localStorage.setItem(CABT_API_KEY + '_url', u); }
 
-// Supabase UMD bundle exposes window.supabase via the <script> in index.html.
-// Stays async so existing callers (.then() / await) both keep working.
 let _sb = null;
 async function CABT_sb() {
   if (_sb) return _sb;
@@ -36,14 +33,20 @@ async function CABT_signInWithGoogle() {
   const sb = await CABT_sb();
   const { data, error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: window.location.href,
-      // Invite-only: any email Bobby added to `invites` can sign in,
-      // regardless of Google Workspace domain. No `hd` hint here.
-    },
+    options: { redirectTo: window.location.href },
   });
   if (error) throw error;
   return data;
+}
+
+async function CABT_signInWithEmail(email) {
+  const sb = await CABT_sb();
+  const { error } = await sb.auth.signInWithOtp({
+    email: email.trim().toLowerCase(),
+    options: { emailRedirectTo: window.location.origin + '/' },
+  });
+  if (error) throw error;
+  return { ok: true };
 }
 
 async function CABT_signOut() {
@@ -61,15 +64,13 @@ async function CABT_currentProfile() {
   const sb = await CABT_sb();
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return null;
-  const { data, error } = await sb
-    .from('profiles').select('*').eq('id', user.id).maybeSingle();
+  const { data, error } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 const snakeToCamel = (s) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 const camelToSnake = (s) => s.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
-
 const reshape = (obj, transform) => {
   if (Array.isArray(obj)) return obj.map(o => reshape(o, transform));
   if (obj === null || typeof obj !== 'object') return obj;
@@ -99,14 +100,12 @@ const CABT_api = {
     if (mode === 'sheet')    return loadStateSheet();
     if (mode === 'supabase') return loadStateSupabase();
   },
-
   async submitMonthlyMetrics(row) { return route('submitMonthlyMetrics', row, 'monthly_metrics'); },
   async submitEvent(row)          { return route('submitEvent',          row, 'growth_events'); },
   async submitSurvey(row)         { return route('submitSurvey',         row, 'surveys'); },
   async submitContract(row)       { return route('submitContract',       row, 'clients'); },
   async submitAdjustment(row)     { return route('submitAdjustment',     row, 'adjustments'); },
   async submitClient(row)         { return route('submitClient',         row, 'clients'); },
-
   async updateMonthlyMetrics(id, row) { return updateRoute(row, 'monthly_metrics', id); },
   async updateEvent(id, row)          { return updateRoute(row, 'growth_events',   id); },
   async updateSurvey(id, row)         { return updateRoute(row, 'surveys',         id); },
@@ -119,14 +118,12 @@ const CABT_api = {
     if (error) throw error;
     return { id };
   },
-
   async approve(id) {
     const mode = CABT_getApiMode();
     if (mode === 'local')    return { id };
     if (mode === 'sheet')    return CABT_callSheet('approveAdjustment', { id });
     const sb = await CABT_sb();
-    const { error } = await sb.from('adjustments')
-      .update({ status: 'Paid', approved_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await sb.from('adjustments').update({ status: 'Paid', approved_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
     return { id };
   },
@@ -135,8 +132,7 @@ const CABT_api = {
     if (mode === 'local')    return { id };
     if (mode === 'sheet')    return CABT_callSheet('rejectAdjustment', { id });
     const sb = await CABT_sb();
-    const { error } = await sb.from('adjustments')
-      .update({ status: 'Rejected', rejected_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await sb.from('adjustments').update({ status: 'Rejected', rejected_at: new Date().toISOString() }).eq('id', id);
     if (error) throw error;
     return { id };
   },
@@ -149,15 +145,13 @@ const CABT_api = {
     if (error) throw error;
     return { clientId, caId };
   },
-
   async submitEditRequest({ tableName, rowId, fieldChanges, reason }) {
     const mode = CABT_getApiMode();
     if (mode !== 'supabase') return { id: 'local-' + Date.now() };
     const sb = await CABT_sb();
     const { data: { user } } = await sb.auth.getUser();
     const { data, error } = await sb.from('edit_requests').insert({
-      table_name: tableName, row_id: rowId,
-      field_changes: fieldChanges, reason, requested_by: user.id,
+      table_name: tableName, row_id: rowId, field_changes: fieldChanges, reason, requested_by: user.id,
     }).select().single();
     if (error) throw error;
     return toUI(data);
@@ -165,20 +159,14 @@ const CABT_api = {
   async approveEditRequest(id) {
     if (CABT_getApiMode() !== 'supabase') return { id };
     const sb = await CABT_sb();
-    const { error } = await sb.from('edit_requests')
-      .update({ status: 'approved' }).eq('id', id);
+    const { error } = await sb.from('edit_requests').update({ status: 'approved' }).eq('id', id);
     if (error) throw error;
     return { id };
   },
-
   async caScorecard(caId, { quarterStart, quarterEnd } = {}) {
     if (CABT_getApiMode() !== 'supabase') return null;
     const sb = await CABT_sb();
-    const { data, error } = await sb.rpc('fn_ca_scorecard', {
-      p_ca_id: caId,
-      p_quarter_start: quarterStart || null,
-      p_quarter_end:   quarterEnd   || null,
-    });
+    const { data, error } = await sb.rpc('fn_ca_scorecard', { p_ca_id: caId, p_quarter_start: quarterStart || null, p_quarter_end: quarterEnd || null });
     if (error) throw error;
     return toUI(data);
   },
@@ -189,7 +177,6 @@ const CABT_api = {
     if (error) throw error;
     return toUI(data);
   },
-
   subscribe(table, callback) {
     if (CABT_getApiMode() !== 'supabase') return { unsubscribe: () => {} };
     let chan = null;
@@ -223,9 +210,7 @@ async function updateRoute(row, supabaseTable, id) {
   if (mode === 'sheet') throw new Error('updateRoute not supported in sheet mode');
   const sb = await CABT_sb();
   const payload = toDB(row);
-  delete payload.id;
-  delete payload.created_at;
-  delete payload.created_by;
+  delete payload.id; delete payload.created_at; delete payload.created_by;
   const { data, error } = await sb.from(supabaseTable).update(payload).eq('id', id).select().single();
   if (error) throw error;
   return toUI(data);
@@ -234,13 +219,10 @@ async function updateRoute(row, supabaseTable, id) {
 async function loadStateSheet() {
   const boot = await CABT_callSheet('getBootstrap', {});
   return {
-    _live: true,
-    me: boot.me, role: boot.me.kind,
-    cas: (boot.cas || []).map(toUI),
-    sales: (boot.sales || []).map(toUI),
+    _live: true, me: boot.me, role: boot.me.kind,
+    cas: (boot.cas || []).map(toUI), sales: (boot.sales || []).map(toUI),
     config: boot.config,
-    clients: [], monthlyMetrics: [], growthEvents: [], surveys: [], adjustments: [],
-    pendingClients: [],
+    clients: [], monthlyMetrics: [], growthEvents: [], surveys: [], adjustments: [], pendingClients: [],
   };
 }
 
@@ -259,46 +241,20 @@ async function loadStateSupabase() {
     sb.from('pending_clients').select('*').eq('status', 'pending'),
     sb.from('open_questions').select('*'),
   ]);
-
   return {
-    _live: true,
-    me: profile,
-    role: profile?.role,
-    cas:            toUI(cas.data || []),
-    sales:          toUI(sales.data || []),
-    clients:        toUI(clients.data || []),
-    monthlyMetrics: toUI(mm.data || []),
-    growthEvents:   toUI(ge.data || []),
-    surveys:        toUI(sv.data || []),
-    adjustments:    toUI(adj.data || []),
-    config:         cfg.data?.values || {},
-    pendingClients: toUI(pending.data || []),
-    openQuestions:  toUI(oq.data || []),
+    _live: true, me: profile, role: profile?.role,
+    cas: toUI(cas.data || []), sales: toUI(sales.data || []),
+    clients: toUI(clients.data || []), monthlyMetrics: toUI(mm.data || []),
+    growthEvents: toUI(ge.data || []), surveys: toUI(sv.data || []),
+    adjustments: toUI(adj.data || []), config: cfg.data?.values || {},
+    pendingClients: toUI(pending.data || []), openQuestions: toUI(oq.data || []),
   };
 }
 
-const CABT_ROLE_LABELS = {
-  owner:      'Owner',
-  admin:      'Admin',
-  integrator: 'Fractional Integrator',
-  ca:         'Client Associate',
-  sales:      'Sales',
-};
-const CABT_ROLE_SHORT = {
-  owner:      'Owner',
-  admin:      'Admin',
-  integrator: 'FI',
-  ca:         'CA',
-  sales:      'Sales',
-};
-const CABT_SALES_ROLE_LABELS = {
-  AM:  'Account Manager',
-  RDR: 'Relationship Development Rep',
-};
-const CABT_SALES_ROLE_SHORT = {
-  AM:  'AM',
-  RDR: 'RDR',
-};
+const CABT_ROLE_LABELS  = { owner:'Owner', admin:'Admin', integrator:'Fractional Integrator', ca:'Client Associate', sales:'Sales' };
+const CABT_ROLE_SHORT   = { owner:'Owner', admin:'Admin', integrator:'FI', ca:'CA', sales:'Sales' };
+const CABT_SALES_ROLE_LABELS = { AM:'Account Manager', RDR:'Relationship Development Rep' };
+const CABT_SALES_ROLE_SHORT  = { AM:'AM', RDR:'RDR' };
 
 function CABT_roleLabel(role, salesRole) {
   if (role === 'sales' && salesRole) return CABT_SALES_ROLE_LABELS[salesRole] || 'Sales';
@@ -312,11 +268,8 @@ function CABT_roleShort(role, salesRole) {
 async function CABT_inviteUser({ email, fullName, role, caId, salesId }) {
   const sb = await CABT_sb();
   const { data, error } = await sb.rpc('invite_user', {
-    p_email: email,
-    p_full_name: fullName,
-    p_role: role,
-    p_ca_id: caId || null,
-    p_sales_id: salesId || null,
+    p_email: email, p_full_name: fullName, p_role: role,
+    p_ca_id: caId || null, p_sales_id: salesId || null,
   });
   if (error) throw error;
   return data;
@@ -324,7 +277,8 @@ async function CABT_inviteUser({ email, fullName, role, caId, salesId }) {
 
 Object.assign(window, {
   CABT_api, CABT_getApiMode, CABT_setApiMode, CABT_getApiUrl, CABT_setApiUrl,
-  CABT_signInWithGoogle, CABT_signOut, CABT_currentSession, CABT_currentProfile,
+  CABT_signInWithGoogle, CABT_signInWithEmail,
+  CABT_signOut, CABT_currentSession, CABT_currentProfile,
   CABT_sb, CABT_SUPABASE_URL, CABT_SUPABASE_ANON_KEY,
   CABT_ROLE_LABELS, CABT_ROLE_SHORT, CABT_SALES_ROLE_LABELS, CABT_SALES_ROLE_SHORT,
   CABT_roleLabel, CABT_roleShort, CABT_inviteUser,
