@@ -21,12 +21,19 @@ function CABT_getApiUrl() {
 }
 function CABT_setApiUrl(u) { localStorage.setItem(CABT_API_KEY + '_url', u); }
 
-// ── Supabase client (lazy-loaded so demo mode has zero overhead) ────────
+// ── Supabase client (UMD bundle loaded via <script> in index.html
+//    exposes window.supabase). We avoid dynamic `import()` because Babel-
+//    in-browser transforms it into a CommonJS `require()` that the browser
+//    can't satisfy ("require is not defined"). Returns synchronously now;
+//    callers that await it still work because awaiting a non-Promise
+//    resolves with the value.
 let _sb = null;
-async function CABT_sb() {
+function CABT_sb() {
   if (_sb) return _sb;
-  const mod = await import('https://esm.sh/@supabase/supabase-js@2.45.0');
-  _sb = mod.createClient(CABT_SUPABASE_URL, CABT_SUPABASE_ANON_KEY, {
+  if (!window.supabase || !window.supabase.createClient) {
+    throw new Error('Supabase UMD bundle did not load (check the <script src="…@supabase/supabase-js…"> tag in index.html).');
+  }
+  _sb = window.supabase.createClient(CABT_SUPABASE_URL, CABT_SUPABASE_ANON_KEY, {
     auth: { persistSession: true, autoRefreshToken: true },
   });
   return _sb;
@@ -39,7 +46,7 @@ async function CABT_signInWithGoogle() {
     provider: 'google',
     options: {
       redirectTo: window.location.href,
-      queryParams: { hd: 'groundstandard.com' },
+      queryParams: { hd: 'groundstandard.com' }, // hint Workspace domain
     },
   });
   if (error) throw error;
@@ -96,6 +103,7 @@ async function CABT_callSheet(action, payload) {
 
 // ── Public API the UI calls ─────────────────────────────────────────────
 const CABT_api = {
+  // ── Bootstrap ────────────────────────────────────────────────────────
   async loadState() {
     const mode = CABT_getApiMode();
     if (mode === 'local')    return window.CABT_loadState();
@@ -103,6 +111,7 @@ const CABT_api = {
     if (mode === 'supabase') return loadStateSupabase();
   },
 
+  // ── Mutations (each returns the saved row in UI shape) ───────────────
   async submitMonthlyMetrics(row) { return route('submitMonthlyMetrics', row, 'monthly_metrics'); },
   async submitEvent(row)          { return route('submitEvent',          row, 'growth_events'); },
   async submitSurvey(row)         { return route('submitSurvey',         row, 'surveys'); },
@@ -110,6 +119,8 @@ const CABT_api = {
   async submitAdjustment(row)     { return route('submitAdjustment',     row, 'adjustments'); },
   async submitClient(row)         { return route('submitClient',         row, 'clients'); },
 
+  // ── Direct updates (edit-gate triggers dropped — anyone with write permission
+  //    can backfill / edit / delete; audit_log still records the change) ──
   async updateMonthlyMetrics(id, row) { return updateRoute(row, 'monthly_metrics', id); },
   async updateEvent(id, row)          { return updateRoute(row, 'growth_events',   id); },
   async updateSurvey(id, row)         { return updateRoute(row, 'surveys',         id); },
@@ -153,6 +164,7 @@ const CABT_api = {
     return { clientId, caId };
   },
 
+  // ── Edit requests (CA edits an approved log) ────────────────────────
   async submitEditRequest({ tableName, rowId, fieldChanges, reason }) {
     const mode = CABT_getApiMode();
     if (mode !== 'supabase') return { id: 'local-' + Date.now() };
@@ -174,8 +186,9 @@ const CABT_api = {
     return { id };
   },
 
+  // ── Server-computed scorecards (Option C: SQL views) ────────────────
   async caScorecard(caId, { quarterStart, quarterEnd } = {}) {
-    if (CABT_getApiMode() !== 'supabase') return null;
+    if (CABT_getApiMode() !== 'supabase') return null; // fall through to client calc
     const sb = await CABT_sb();
     const { data, error } = await sb.rpc('fn_ca_scorecard', {
       p_ca_id: caId,
@@ -193,6 +206,7 @@ const CABT_api = {
     return toUI(data);
   },
 
+  // ── Real-time (Supabase channels) ───────────────────────────────────
   subscribe(table, callback) {
     if (CABT_getApiMode() !== 'supabase') return { unsubscribe: () => {} };
     let chan = null;
@@ -211,6 +225,8 @@ async function route(sheetAction, row, supabaseTable) {
   if (mode === 'local') return row;
   if (mode === 'sheet') return CABT_callSheet(sheetAction, row);
   const sb = await CABT_sb();
+  // Stamp created_by with the auth user when present so audit trails work
+  // even if the caller forgot to set it.
   const payload = toDB(row);
   if (!payload.created_by) {
     const { data: { user } } = await sb.auth.getUser();
@@ -228,6 +244,7 @@ async function updateRoute(row, supabaseTable, id) {
   if (mode === 'sheet') throw new Error('updateRoute not supported in sheet mode');
   const sb = await CABT_sb();
   const payload = toDB(row);
+  // never overwrite the primary key via update
   delete payload.id;
   delete payload.created_at;
   delete payload.created_by;
@@ -289,7 +306,7 @@ const CABT_ROLE_LABELS = {
   admin:      'Admin',
   integrator: 'Fractional Integrator',
   ca:         'Client Associate',
-  sales:      'Sales',
+  sales:      'Sales',  // generic; refine via sales_role
 };
 const CABT_ROLE_SHORT = {
   owner:      'Owner',
@@ -307,6 +324,7 @@ const CABT_SALES_ROLE_SHORT = {
   RDR: 'RDR',
 };
 
+// Returns the right label for a profile. salesRole only matters when role='sales'.
 function CABT_roleLabel(role, salesRole) {
   if (role === 'sales' && salesRole) return CABT_SALES_ROLE_LABELS[salesRole] || 'Sales';
   return CABT_ROLE_LABELS[role] || role || 'Unknown';
