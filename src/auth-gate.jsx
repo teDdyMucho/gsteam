@@ -74,7 +74,7 @@ function AuthGate({ theme, onAuthed }) {
           fontSize: 13, color: theme.inkSoft, lineHeight: 1.55,
           fontFamily: theme.serif, fontStyle: 'italic', marginBottom: 28,
         }}>
-          GroundStandard internal. Sign in with your <strong>@groundstandard.com</strong> Google account.
+          Invite-only. Sign in with the Google account Bobby invited.
         </div>
 
         <button onClick={onSignIn} style={{
@@ -98,7 +98,7 @@ function AuthGate({ theme, onAuthed }) {
         )}
 
         <div style={{ marginTop: 36, fontSize: 11, color: theme.inkMuted, lineHeight: 1.6 }}>
-          Trouble signing in? Confirm your email is on the <a style={{ color: theme.accent }}>roster</a> in Admin → Roster, or ping Bobby.
+          Not invited yet? Ping Bobby — he can add your email in the Admin → Roster.
         </div>
       </div>
     </div>
