@@ -1,16 +1,96 @@
-// sales-app.jsx — Sales persona screens
+// sales-app.jsx — Sales persona screens (Account Manager + Relationship Development Rep)
+
+function CABT_salesRollupB(rep, state) {
+  if (!rep) return null;
+  const yearStart = new Date(new Date().getFullYear(), 0, 1);
+  const today = new Date();
+
+  const isAM  = rep.role === 'AM'  || rep.role === 'AE';
+  const isRDR = rep.role === 'RDR' || rep.role === 'SDR';
+
+  const myContracts = state.clients.filter(c => {
+    if (isAM)  return c.ae === rep.id;
+    if (isRDR) return c.sdrBookedBy === rep.id;
+    return false;
+  });
+
+  const cfg = state.config || {};
+  const rdrFee = Number(
+    cfg.rdrPerBookingFee ?? cfg.rdr_per_booking_fee
+    ?? cfg.sdrFlatFeePerBooking ?? cfg.sdr_flat_fee_per_booking ?? 100
+  );
+
+  const ymd = (d) => d.toISOString().slice(0, 10);
+  const milestones = [];
+
+  myContracts.forEach(c => {
+    const sign = new Date(c.signDate);
+    const term = Number(c.termMonths) || 12;
+    const retainer = Number(c.monthlyRetainer) || 0;
+    const contractValue = retainer * term;
+    const cancel = c.cancelDate ? new Date(c.cancelDate) : null;
+    const apply = (dateObj, gross, clawable) => {
+      if (clawable && cancel && cancel < dateObj) return 0;
+      return gross;
+    };
+    if (isAM) {
+      const upfrontDate = new Date(sign);
+      const midDate     = new Date(sign); midDate.setMonth(midDate.getMonth() + Math.floor(term / 2));
+      const endDate     = new Date(sign); endDate.setMonth(endDate.getMonth() + term);
+      const upGross  = contractValue * Number(c.upfrontPct || 0);
+      const midGross = term > 6 ? contractValue * Number(c.midPct || 0) : 0;
+      const endGross = contractValue * Number(c.endPct || 0);
+      const upAmt  = apply(upfrontDate, upGross,  false);
+      const midAmt = apply(midDate,     midGross, true);
+      const endAmt = apply(endDate,     endGross, true);
+      const statusFor = (dateObj, amt, gross) => {
+        if (amt === 0 && gross > 0) return 'clawed';
+        return dateObj <= today ? 'paid' : 'pending';
+      };
+      milestones.push({ clientId: c.id, label: 'Upfront',  date: ymd(upfrontDate), amount: upAmt,  gross: upGross,  status: statusFor(upfrontDate, upAmt, upGross) });
+      if (midGross > 0) milestones.push({ clientId: c.id, label: 'Midpoint', date: ymd(midDate), amount: midAmt, gross: midGross, status: statusFor(midDate, midAmt, midGross) });
+      milestones.push({ clientId: c.id, label: 'End', date: ymd(endDate), amount: endAmt, gross: endGross, status: statusFor(endDate, endAmt, endGross) });
+    } else if (isRDR) {
+      if (c.ae && c.ae === rep.id) return;
+      const bookingDate = new Date(sign);
+      milestones.push({
+        clientId: c.id, label: 'Booking',
+        date: ymd(bookingDate), amount: rdrFee, gross: rdrFee,
+        status: bookingDate <= today ? 'paid' : 'pending',
+      });
+    }
+  });
+
+  const ytdMilestones = milestones.filter(m => new Date(m.date) >= yearStart);
+  const paidYtd = ytdMilestones.filter(m => m.status === 'paid').reduce((s, m) => s + m.amount, 0);
+  const pending = milestones.filter(m => m.status === 'pending').reduce((s, m) => s + m.amount, 0);
+  const myAdj = state.adjustments.filter(a => a.repId === rep.id);
+  const adjPaid = myAdj.filter(a => a.status === 'Paid').reduce((s, a) => s + Number(a.amount || 0), 0);
+  const adjPending = myAdj.filter(a => a.status === 'Pending').reduce((s, a) => s + Number(a.amount || 0), 0);
+  const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
+  const upcoming = milestones.filter(m => {
+    const d = new Date(m.date);
+    return d >= today && d <= in30 && m.status === 'pending';
+  });
+  return {
+    rep, contracts: myContracts, milestones,
+    paidYtd: paidYtd + adjPaid, pending: pending + adjPending,
+    activeContracts: myContracts.filter(c => !c.cancelDate).length,
+    upcoming,
+  };
+}
 
 function SalesHome({ state, rep, theme, navigate }) {
-  const r = CABT_salesRollup(rep.id, state);
+  if (!rep) return null;
+  const r = CABT_salesRollupB(rep, state);
   if (!r) return null;
   const pendingAdj = state.adjustments.filter(a => a.repId === rep.id && a.status === 'Pending').length;
   return (
     <div style={{ padding: '8px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{
-        background: theme.accent, color: theme.accentInk,
-        borderRadius: theme.radius + 4, padding: '22px',
-      }}>
-        <div style={{ fontSize: 12, opacity: 0.7, letterSpacing: 0.4, textTransform: 'uppercase', fontWeight: 600 }}>{rep.role} · {rep.name}</div>
+      <div style={{ background: theme.accent, color: theme.accentInk, borderRadius: theme.radius + 4, padding: '22px' }}>
+        <div style={{ fontSize: 12, opacity: 0.7, letterSpacing: 0.4, textTransform: 'uppercase', fontWeight: 600 }}>
+          {CABT_roleLabel(rep.role, rep.role)} · {rep.name}
+        </div>
         <div style={{ fontFamily: theme.serif, fontSize: 42, fontWeight: 600, marginTop: 6, letterSpacing: -1, lineHeight: 1 }}>
           {CABT_fmtMoney(r.paidYtd)}
         </div>
@@ -26,27 +106,6 @@ function SalesHome({ state, rep, theme, navigate }) {
           <div style={{ fontSize: 28, fontWeight: 700, color: theme.ink, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>{pendingAdj}</div>
         </Card>
       </div>
-      <div>
-        <SectionLabel theme={theme}>Upcoming · next 30 days</SectionLabel>
-        <Card theme={theme} padding={0}>
-          {r.upcoming.length === 0 && <div style={{ padding: 16, color: theme.inkMuted, fontSize: 13 }}>Nothing coming up.</div>}
-          {r.upcoming.map((m, i) => {
-            const c = state.clients.find(cl => cl.id === m.clientId);
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: i === r.upcoming.length - 1 ? 'none' : `1px solid ${theme.rule}` }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: theme.gold + '22', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="cash" size={16} color={theme.gold}/>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: theme.ink }}>{c?.name} · {m.label}</div>
-                  <div style={{ fontSize: 12, color: theme.inkMuted }}>{CABT_fmtDate(m.date)}</div>
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: theme.ink, fontVariantNumeric: 'tabular-nums' }}>{CABT_fmtMoney(m.amount)}</div>
-              </div>
-            );
-          })}
-        </Card>
-      </div>
       <Button theme={theme} icon="plus" fullWidth onClick={() => navigate('log-contract')}>Log new contract</Button>
       <Button theme={theme} icon="edit" variant="secondary" fullWidth onClick={() => navigate('log-adjustment')}>Log adjustment</Button>
     </div>
@@ -54,60 +113,83 @@ function SalesHome({ state, rep, theme, navigate }) {
 }
 
 function LogContractForm({ state, rep, theme, navigate, onSubmit }) {
+  const isAM = rep && (rep.role === 'AM' || rep.role === 'AE');
   const [form, setForm] = React.useState({
-    name: '',
-    stripeId: '',
-    signDate: CABT_todayIso(),
-    monthlyRetainer: '',
-    termMonths: 12,
-    ae: rep.role === 'AE' ? rep.id : '',
-    sdrBookedBy: '',
-    upfrontPct: rep.upfrontRate || 0.10,
-    midPct: rep.midRate || 0.05,
-    endPct: rep.endRate || 0.05,
-    hasMembershipAddon: false,
-    membershipStartDate: '',
+    name: '', stripeCustomerId: '', signDate: CABT_todayIso(),
+    monthlyRetainer: '', termMonths: 12,
+    ae: isAM ? rep.id : '', sdrBookedBy: '',
+    upfrontPct: rep?.upfrontRate || 0.10,
+    midPct:     rep?.midRate     || 0.05,
+    endPct:     rep?.endRate     || 0.05,
+    hasMembershipAddon: false, membershipStartDate: '',
     notes: '',
   });
   const [errors, setErrors] = React.useState({});
-  const aes = state.sales.filter(s => s.role === 'AE').map(s => ({ value: s.id, label: s.name }));
-  const sdrs = [{ value: '', label: 'None' }, ...state.sales.filter(s => s.role === 'SDR').map(s => ({ value: s.id, label: s.name }))];
+  const [busy, setBusy] = React.useState(false);
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+
+  const ams  = state.sales.filter(s => s.role === 'AM' || s.role === 'AE')
+                          .map(s => ({ value: s.id, label: s.name }));
+  const rdrs = [
+    { value: '', label: 'None' },
+    ...state.sales.filter(s => s.role === 'RDR' || s.role === 'SDR')
+                  .map(s => ({ value: s.id, label: s.name })),
+  ];
 
   const validate = () => {
     const e = {};
     if (!form.name) e.name = 'Required';
     if (!form.signDate) e.signDate = 'Required';
-    if (new Date(form.signDate) > new Date()) e.signDate = 'Cannot be in the future';
-    if (!form.monthlyRetainer) e.monthlyRetainer = 'Required';
-    if (!form.termMonths) e.termMonths = 'Required';
+    if (form.signDate && new Date(form.signDate) > new Date()) e.signDate = 'Cannot be in the future';
+    if (!form.monthlyRetainer || Number(form.monthlyRetainer) <= 0) e.monthlyRetainer = 'Required';
+    if (!form.termMonths || Number(form.termMonths) <= 0) e.termMonths = 'Required';
+    if (form.hasMembershipAddon && !form.membershipStartDate) e.membershipStartDate = 'Required when membership is on';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
-  const submit = () => {
-    if (!validate()) return;
-    onSubmit({
-      id: `C-${Date.now()}`,
-      name: form.name, stripeId: form.stripeId,
-      signDate: form.signDate, cancelDate: '',
+
+  const submit = async () => {
+    if (!validate() || busy) return;
+    setBusy(true);
+    const localId = `CL-${Date.now().toString().slice(-6)}`;
+    const payload = {
+      id: localId, name: form.name.trim(),
+      stripeCustomerId: form.stripeCustomerId,
+      signDate: form.signDate, cancelDate: null,
       monthlyRetainer: Number(form.monthlyRetainer),
-      hasMembershipAddon: form.hasMembershipAddon,
+      hasMembershipAddon: !!form.hasMembershipAddon,
+      membershipStartDate: form.hasMembershipAddon ? form.membershipStartDate : null,
       termMonths: Number(form.termMonths),
-      ae: form.ae, sdrBookedBy: form.sdrBookedBy,
+      ae: form.ae || null, sdrBookedBy: form.sdrBookedBy || null,
       upfrontPct: Number(form.upfrontPct), midPct: Number(form.midPct), endPct: Number(form.endPct),
-      membershipStartDate: form.hasMembershipAddon ? form.membershipStartDate : '',
-      assignedCA: '', // Bobby assigns later
-    });
+      stripeTruthMode: 'stripe_wins', assignedCa: null, notes: form.notes,
+    };
+    try {
+      let saved = payload;
+      if (CABT_getApiMode() === 'supabase') {
+        try {
+          const sb = await CABT_sb();
+          const { data: nextIdData } = await sb.rpc('next_client_id');
+          if (nextIdData) payload.id = nextIdData;
+        } catch (_) {}
+        saved = await CABT_api.submitContract(payload);
+      }
+      onSubmit(saved);
+    } catch (e) {
+      console.error('submitContract failed:', e);
+      setErrors({ ...errors, _root: e?.message || 'Save failed — try again' });
+      setBusy(false);
+    }
   };
+
   return (
     <div style={{ padding: '12px 16px 120px', display: 'flex', flexDirection: 'column', gap: 14 }}>
       <Banner tone="info" icon="alert" theme={theme}>
         CA assignment is left blank — admin will assign after you submit.
       </Banner>
+      {errors._root && <Banner tone="error" icon="alert" theme={theme}>{errors._root}</Banner>}
       <Field label="Business name" required error={errors.name} theme={theme}>
         <Input value={form.name} onChange={(v) => setForm({ ...form, name: v })} theme={theme} placeholder="e.g. Ronin BJJ Austin"/>
-      </Field>
-      <Field label="Stripe customer ID" hint="Optional — for future automation" theme={theme}>
-        <Input value={form.stripeId} onChange={(v) => setForm({ ...form, stripeId: v })} theme={theme} placeholder="cus_..."/>
       </Field>
       <Field label="Sign date" required error={errors.signDate} theme={theme}>
         <Input type="date" value={form.signDate} onChange={(v) => setForm({ ...form, signDate: v })} theme={theme}/>
@@ -118,11 +200,11 @@ function LogContractForm({ state, rep, theme, navigate, onSubmit }) {
       <Field label="Term (months)" required error={errors.termMonths} theme={theme}>
         <Input type="number" inputmode="numeric" value={form.termMonths} onChange={(v) => setForm({ ...form, termMonths: v })} theme={theme}/>
       </Field>
-      <Field label="AE" theme={theme}>
-        <Select value={form.ae} onChange={(v) => setForm({ ...form, ae: v })} options={aes} theme={theme}/>
+      <Field label="Account Manager" theme={theme}>
+        <Select value={form.ae} onChange={(v) => setForm({ ...form, ae: v })} options={ams} theme={theme}/>
       </Field>
-      <Field label="SDR who booked" theme={theme}>
-        <Select value={form.sdrBookedBy} onChange={(v) => setForm({ ...form, sdrBookedBy: v })} options={sdrs} theme={theme}/>
+      <Field label="Relationship Development Rep (booked by)" theme={theme}>
+        <Select value={form.sdrBookedBy} onChange={(v) => setForm({ ...form, sdrBookedBy: v })} options={rdrs} theme={theme}/>
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         <Field label="Upfront %" theme={theme}>
@@ -143,25 +225,48 @@ function LogContractForm({ state, rep, theme, navigate, onSubmit }) {
         <Toggle value={form.hasMembershipAddon} onChange={(v) => setForm({ ...form, hasMembershipAddon: v })} theme={theme}/>
       </div>
       {form.hasMembershipAddon && (
-        <Field label="Membership start date" theme={theme}>
+        <Field label="Membership start date" required error={errors.membershipStartDate} theme={theme}>
           <Input type="date" value={form.membershipStartDate} onChange={(v) => setForm({ ...form, membershipStartDate: v })} theme={theme}/>
         </Field>
       )}
+      <Field label="Notes" theme={theme}>
+        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3}
+          placeholder="Anything admins should know about this account…"
+          style={{ width: '100%', minHeight: 70, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 15, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
+      </Field>
+
+      <button onClick={() => setShowAdvanced(s => !s)} style={{
+        background: 'transparent', border: 'none', color: theme.inkMuted,
+        fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+        textAlign: 'left', padding: '4px 0', textDecoration: 'underline',
+      }}>
+        {showAdvanced ? 'Hide advanced' : 'Show advanced (Stripe customer ID)'}
+      </button>
+      {showAdvanced && (
+        <Field label="Stripe customer ID" hint="Optional — wires future automation" theme={theme}>
+          <Input value={form.stripeCustomerId} onChange={(v) => setForm({ ...form, stripeCustomerId: v })} theme={theme} placeholder="cus_..."/>
+        </Field>
+      )}
+
       <StickyBar theme={theme}>
         <Button theme={theme} variant="secondary" onClick={() => navigate('back')}>Cancel</Button>
-        <Button theme={theme} variant="primary" fullWidth onClick={submit}>Save contract</Button>
+        <Button theme={theme} variant="primary" fullWidth disabled={busy} onClick={submit}>
+          {busy ? 'Saving…' : 'Save contract'}
+        </Button>
       </StickyBar>
     </div>
   );
 }
 
 function SalesCommissions({ state, rep, theme }) {
-  const r = CABT_salesRollup(rep.id, state);
+  if (!rep) return null;
+  const r = CABT_salesRollupB(rep, state);
   if (!r) return null;
-  const aeYtd = state.sales.filter(s => s.role === 'AE').reduce((s, ae) => s + (CABT_salesRollup(ae.id, state)?.paidYtd || 0), 0);
-  const sdrYtd = state.sales.filter(s => s.role === 'SDR').reduce((s, sd) => s + (CABT_salesRollup(sd.id, state)?.paidYtd || 0), 0);
-
-  // 12-month calendar
+  const isAM = rep.role === 'AM' || rep.role === 'AE';
+  const amYtd = state.sales.filter(s => s.role === 'AM' || s.role === 'AE')
+    .reduce((s, ae) => s + (CABT_salesRollupB(ae, state)?.paidYtd || 0), 0);
+  const rdrYtd = state.sales.filter(s => s.role === 'RDR' || s.role === 'SDR')
+    .reduce((s, sd) => s + (CABT_salesRollupB(sd, state)?.paidYtd || 0), 0);
   const now = new Date();
   const months = [];
   for (let i = 0; i < 12; i++) {
@@ -173,16 +278,14 @@ function SalesCommissions({ state, rep, theme }) {
     return { ...m, total };
   });
   const maxMonth = Math.max(1, ...monthTotals.map(m => m.total));
-
   return (
     <div style={{ padding: '8px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <KPI theme={theme} label="AE Paid YTD" value={CABT_fmtMoney(aeYtd)} />
-        <KPI theme={theme} label="AE Pending" value={CABT_fmtMoney(r.pending)} />
-        <KPI theme={theme} label="SDR YTD" value={CABT_fmtMoney(sdrYtd)} />
+        <KPI theme={theme} label="Paid YTD"        value={CABT_fmtMoney(r.paidYtd)} />
+        <KPI theme={theme} label="Pending"         value={CABT_fmtMoney(r.pending)} />
+        <KPI theme={theme} label={isAM ? 'RDR team YTD' : 'AM team YTD'} value={CABT_fmtMoney(isAM ? rdrYtd : amYtd)} />
         <KPI theme={theme} label="Active contracts" value={r.activeContracts} />
       </div>
-
       <Card theme={theme}>
         <SectionLabel theme={theme}>12-month calendar</SectionLabel>
         <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 90, marginTop: 4 }}>
@@ -193,8 +296,7 @@ function SalesCommissions({ state, rep, theme }) {
               <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <div style={{
                   width: '100%', height: h, background: isCurrent ? theme.accent : theme.gold,
-                  opacity: m.total === 0 ? 0.18 : 1,
-                  borderRadius: 3, transition: 'height .3s',
+                  opacity: m.total === 0 ? 0.18 : 1, borderRadius: 3, transition: 'height .3s',
                 }}/>
                 <div style={{ fontSize: 9, color: theme.inkMuted, fontWeight: 600 }}>{m.label}</div>
               </div>
@@ -202,13 +304,17 @@ function SalesCommissions({ state, rep, theme }) {
           })}
         </div>
       </Card>
-
       <div>
         <SectionLabel theme={theme}>Contracts · {r.contracts.length}</SectionLabel>
+        {r.contracts.length === 0 && (
+          <Card theme={theme}>
+            <div style={{ color: theme.inkMuted, fontSize: 13 }}>No contracts {isAM ? 'assigned to you yet' : 'booked by you yet'}.</div>
+          </Card>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {r.contracts.map(c => {
             const ms = r.milestones.filter(m => m.clientId === c.id);
-            const value = c.monthlyRetainer * c.termMonths;
+            const value = (Number(c.monthlyRetainer) || 0) * (Number(c.termMonths) || 0);
             return (
               <Card theme={theme} key={c.id} padding={14}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
@@ -217,15 +323,17 @@ function SalesCommissions({ state, rep, theme }) {
                 </div>
                 <div style={{ fontSize: 12, color: theme.inkMuted, marginBottom: 8 }}>
                   {CABT_fmtMoney(c.monthlyRetainer)}/mo · {c.termMonths}mo · Signed {CABT_fmtDate(c.signDate)}
+                  {c.cancelDate && <span style={{ color: STATUS.red, fontWeight: 600 }}> · Cancelled {CABT_fmtDate(c.cancelDate)}</span>}
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {ms.map((m, i) => {
                     const colors = { paid: STATUS.green, pending: STATUS.yellow, clawed: STATUS.red };
+                    const c2 = colors[m.status];
                     return (
-                      <div key={i} style={{ flex: 1, padding: '6px 8px', background: colors[m.status] + '14', borderRadius: 6, border: `1px solid ${colors[m.status]}33` }}>
+                      <div key={i} style={{ flex: '1 1 80px', minWidth: 80, padding: '6px 8px', background: c2 + '14', borderRadius: 6, border: `1px solid ${c2}33` }}>
                         <div style={{ fontSize: 10, color: theme.inkMuted, textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.3 }}>{m.label}</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: theme.ink, fontVariantNumeric: 'tabular-nums' }}>{CABT_fmtMoney(m.amount)}</div>
-                        <div style={{ fontSize: 10, color: colors[m.status], textTransform: 'capitalize', fontWeight: 600 }}>{m.status}</div>
+                        <div style={{ fontSize: 10, color: c2, textTransform: 'capitalize', fontWeight: 600 }}>{m.status}</div>
                       </div>
                     );
                   })}
@@ -250,52 +358,94 @@ function KPI({ theme, label, value }) {
 
 function LogAdjustmentForm({ state, rep, theme, isAdmin, navigate, onSubmit }) {
   const [form, setForm] = React.useState({
-    date: CABT_todayIso(), repId: rep.id, role: rep.role, type: '',
-    amount: '', reason: '', linkedClient: '', period: 'Q2 2026',
+    date: CABT_todayIso(),
+    repId: rep?.id || '',
+    role: (rep?.role === 'AE' ? 'AM' : rep?.role === 'SDR' ? 'RDR' : rep?.role) || 'AM',
+    type: '', amount: '', reason: '',
+    linkedClient: '', period: defaultPeriod(),
     status: 'Pending',
   });
   const [errors, setErrors] = React.useState({});
+  const [busy, setBusy] = React.useState(false);
+
   const validate = () => {
     const e = {};
     if (!form.repId) e.repId = 'Required';
     if (!form.type) e.type = 'Required';
-    if (!form.amount) e.amount = 'Required';
+    if (form.amount === '' || form.amount == null || isNaN(Number(form.amount))) e.amount = 'Required';
     if (!form.reason) e.reason = 'Required';
+    if (!form.linkedClient) e.linkedClient = 'Required — adjustments must reference an existing client';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
-  const submit = () => {
-    if (!validate()) return;
-    onSubmit({ id: `CA-${Date.now()}`, ...form, amount: Number(form.amount) });
+
+  const submit = async () => {
+    if (!validate() || busy) return;
+    setBusy(true);
+    const payload = {
+      id: `CA-${Date.now().toString().slice(-8)}`,
+      repId: form.repId, role: form.role, type: form.type,
+      amount: Number(form.amount), reason: form.reason,
+      linkedClient: form.linkedClient || null, period: form.period,
+      status: isAdmin ? form.status : 'Pending', date: form.date,
+    };
+    try {
+      let saved = payload;
+      if (CABT_getApiMode() === 'supabase') {
+        saved = await CABT_api.submitAdjustment(payload);
+      }
+      onSubmit(saved);
+    } catch (e) {
+      console.error('submitAdjustment failed:', e);
+      setErrors({ ...errors, _root: e?.message || 'Save failed — try again' });
+      setBusy(false);
+    }
   };
-  const reps = state.sales.map(s => ({ value: s.id, label: `${s.name} · ${s.role}` }));
+
+  const reps = state.sales.map(s => ({
+    value: s.id,
+    label: `${s.name} · ${s.role === 'AE' ? 'AM' : s.role === 'SDR' ? 'RDR' : s.role}`,
+  }));
+
   return (
     <div style={{ padding: '12px 16px 120px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {errors._root && <Banner tone="error" icon="alert" theme={theme}>{errors._root}</Banner>}
       <Field label="Date" theme={theme}>
         <Input type="date" value={form.date} onChange={(v) => setForm({ ...form, date: v })} theme={theme}/>
       </Field>
       <Field label="Rep" required error={errors.repId} theme={theme}>
         <Select value={form.repId} onChange={(v) => {
           const r = state.sales.find(s => s.id === v);
-          setForm({ ...form, repId: v, role: r?.role || form.role });
+          const role = r?.role === 'AE' ? 'AM' : r?.role === 'SDR' ? 'RDR' : r?.role;
+          setForm({ ...form, repId: v, role: role || form.role });
         }} options={reps} theme={theme}/>
       </Field>
-      <Field label="Type" required error={errors.type} theme={theme}>
-        <Select value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={['Draw', 'Bonus', 'Correction', 'Clawback']} theme={theme}/>
+      <Field label="Type" required error={errors.type} hint="Penalty/Correction can be negative" theme={theme}>
+        <Select value={form.type} onChange={(v) => setForm({ ...form, type: v })}
+                options={['Bonus', 'Correction', 'Penalty', 'Spiff']} theme={theme}/>
       </Field>
-      <Field label="Amount" required error={errors.amount} theme={theme}>
+      <Field label="Amount" required error={errors.amount} hint="Use negative for clawbacks/penalties" theme={theme}>
         <Input type="number" inputmode="decimal" prefix="$" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} theme={theme}/>
       </Field>
       <Field label="Reason" required error={errors.reason} theme={theme}>
         <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={3}
           style={{ width: '100%', minHeight: 70, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 15, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
       </Field>
-      <Field label="Linked client" theme={theme}>
+      <Field label="Linked client" required error={errors.linkedClient}
+             hint="Adjustments must tie back to a real account on the books"
+             theme={theme}>
         <Select value={form.linkedClient} onChange={(v) => setForm({ ...form, linkedClient: v })}
-          options={[{ value: '', label: 'None' }, ...state.clients.map(c => ({ value: c.id, label: c.name }))]} theme={theme}/>
+          options={[
+            { value: '', label: 'Pick a client…' },
+            ...(isAdmin
+                  ? state.clients
+                  : state.clients.filter(c => c.ae === rep?.id || c.sdrBookedBy === rep?.id)
+               ).map(c => ({ value: c.id, label: c.name })),
+          ]} theme={theme}/>
       </Field>
       <Field label="Period" theme={theme}>
-        <Select value={form.period} onChange={(v) => setForm({ ...form, period: v })} options={['Q1 2026','Q2 2026','Q3 2026','Q4 2026']} theme={theme}/>
+        <Select value={form.period} onChange={(v) => setForm({ ...form, period: v })}
+                options={periodOptions()} theme={theme}/>
       </Field>
       {isAdmin && (
         <Field label="Status" hint="Admin only — sales submissions default to Pending" theme={theme}>
@@ -304,10 +454,30 @@ function LogAdjustmentForm({ state, rep, theme, isAdmin, navigate, onSubmit }) {
       )}
       <StickyBar theme={theme}>
         <Button theme={theme} variant="secondary" onClick={() => navigate('back')}>Cancel</Button>
-        <Button theme={theme} variant="primary" fullWidth onClick={submit}>Submit adjustment</Button>
+        <Button theme={theme} variant="primary" fullWidth disabled={busy} onClick={submit}>
+          {busy ? 'Saving…' : 'Submit adjustment'}
+        </Button>
       </StickyBar>
     </div>
   );
 }
 
-Object.assign(window, { SalesHome, LogContractForm, SalesCommissions, LogAdjustmentForm, KPI });
+function defaultPeriod() {
+  const d = new Date();
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  return `Q${q} ${d.getFullYear()}`;
+}
+function periodOptions() {
+  const d = new Date();
+  const y = d.getFullYear();
+  return [
+    `Q1 ${y - 1}`, `Q2 ${y - 1}`, `Q3 ${y - 1}`, `Q4 ${y - 1}`,
+    `Q1 ${y}`,     `Q2 ${y}`,     `Q3 ${y}`,     `Q4 ${y}`,
+    `Q1 ${y + 1}`, `Q2 ${y + 1}`,
+  ];
+}
+
+Object.assign(window, {
+  SalesHome, LogContractForm, SalesCommissions, LogAdjustmentForm,
+  KPI, CABT_salesRollupB,
+});
