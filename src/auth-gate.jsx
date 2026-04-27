@@ -1,11 +1,15 @@
-// auth-gate.jsx — Magic-link email login screen for Supabase mode.
+// auth-gate.jsx — Email + password sign-in for Supabase mode.
+// Dead simple: type email + password, hit Sign in. No magic link, no OAuth.
+// Account creation happens in Supabase Studio (owner is the gatekeeper).
 
 function AuthGate({ theme, onAuthed }) {
   const [phase, setPhase] = React.useState('checking');
   const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState(null);
-  const [busy, setBusy]   = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
 
+  // On mount: check for existing session; fall back to login form after 4s
   React.useEffect(() => {
     let cancelled = false;
     const timeoutId = setTimeout(() => {
@@ -21,7 +25,11 @@ function AuthGate({ theme, onAuthed }) {
         if (cancelled) return;
         onAuthed && onAuthed(session, prof);
       } catch (e) {
-        if (!cancelled) { clearTimeout(timeoutId); setError(e.message); setPhase('error'); }
+        if (!cancelled) {
+          clearTimeout(timeoutId);
+          setError(e.message || String(e));
+          setPhase('needs-login');
+        }
       }
     })();
     let unsub = null;
@@ -41,12 +49,13 @@ function AuthGate({ theme, onAuthed }) {
   const onSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!email || !email.includes('@')) { setError('Enter a valid email.'); return; }
+    if (!password) { setError('Enter your password.'); return; }
     setBusy(true); setError(null);
     try {
-      await CABT_signInWithEmail(email);
-      setPhase('sent');
+      const { session, profile } = await CABT_signInWithPassword(email, password);
+      if (session) onAuthed && onAuthed(session, profile);
     } catch (e2) {
-      setError(e2.message || 'Could not send sign-in link.');
+      setError(e2.message || 'Sign-in failed.');
     } finally {
       setBusy(false);
     }
@@ -80,70 +89,65 @@ function AuthGate({ theme, onAuthed }) {
           fontFamily: theme.serif, fontSize: 32, fontWeight: 600, letterSpacing: -0.5,
           lineHeight: 1.1, marginBottom: 10,
         }}>gsTeam Scoreboard</div>
+        <div style={{
+          fontSize: 13, color: theme.inkSoft, lineHeight: 1.55,
+          fontFamily: theme.serif, fontStyle: 'italic', marginBottom: 24,
+        }}>
+          Sign in with your email and password.
+        </div>
 
-        {phase === 'sent' ? (
-          <>
-            <div style={{
-              fontSize: 14, color: theme.ink, lineHeight: 1.55,
-              fontFamily: theme.serif, marginBottom: 18,
-            }}>
-              If <strong>{email}</strong> is invited, a sign-in link is on the way.<br/>
-              Click it from this device to come back here signed in.
-            </div>
-            <button onClick={() => setPhase('needs-login')} style={{
-              fontSize: 13, color: theme.inkMuted, background: 'transparent',
-              border: 'none', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline',
-            }}>Use a different email</button>
-          </>
-        ) : (
-          <>
-            <div style={{
-              fontSize: 13, color: theme.inkSoft, lineHeight: 1.55,
-              fontFamily: theme.serif, fontStyle: 'italic', marginBottom: 24,
-            }}>
-              Invite-only. Enter your email — if you're invited, we'll send you a sign-in link.
-            </div>
+        <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="username"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={busy}
+            style={{
+              width: '100%', padding: '14px 16px', borderRadius: 12,
+              background: theme.bgElev || theme.surface, color: theme.ink,
+              border: `1px solid ${theme.rule}`, fontFamily: 'inherit',
+              fontSize: 15, outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          <input
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={busy}
+            style={{
+              width: '100%', padding: '14px 16px', borderRadius: 12,
+              background: theme.bgElev || theme.surface, color: theme.ink,
+              border: `1px solid ${theme.rule}`, fontFamily: 'inherit',
+              fontSize: 15, outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          <button type="submit" disabled={busy} style={{
+            width: '100%', padding: '14px 18px', borderRadius: 12,
+            background: theme.accent, color: theme.accentInk, border: 'none',
+            fontFamily: 'inherit', fontSize: 15, fontWeight: 700, cursor: busy ? 'wait' : 'pointer',
+            opacity: busy ? 0.6 : 1,
+          }}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
 
-            <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={busy}
-                style={{
-                  width: '100%', padding: '14px 16px', borderRadius: 12,
-                  background: theme.bgElev || theme.surface, color: theme.ink,
-                  border: `1px solid ${theme.rule}`, fontFamily: 'inherit',
-                  fontSize: 15, outline: 'none', boxSizing: 'border-box',
-                }}
-              />
-              <button type="submit" disabled={busy} style={{
-                width: '100%', padding: '14px 18px', borderRadius: 12,
-                background: theme.accent, color: theme.accentInk, border: 'none',
-                fontFamily: 'inherit', fontSize: 15, fontWeight: 700, cursor: busy ? 'wait' : 'pointer',
-                opacity: busy ? 0.6 : 1,
-              }}>
-                {busy ? 'Sending…' : 'Send sign-in link'}
-              </button>
-            </form>
-
-            {error && (
-              <div style={{
-                marginTop: 16, padding: '10px 14px', borderRadius: 8,
-                background: '#FFE5E5', color: '#9B1B1B', fontSize: 12, textAlign: 'left',
-              }}>
-                <strong>Couldn't send link.</strong> {error}
-              </div>
-            )}
-
-            <div style={{ marginTop: 36, fontSize: 11, color: theme.inkMuted, lineHeight: 1.6 }}>
-              Not invited? Ping Bobby — he can add your email in Admin → Roster.
-            </div>
-          </>
+        {error && (
+          <div style={{
+            marginTop: 16, padding: '10px 14px', borderRadius: 8,
+            background: '#FFE5E5', color: '#9B1B1B', fontSize: 12, textAlign: 'left',
+          }}>
+            <strong>Couldn't sign in.</strong> {error}
+          </div>
         )}
+
+        <div style={{ marginTop: 36, fontSize: 11, color: theme.inkMuted, lineHeight: 1.6 }}>
+          No account? Ask Bobby to create one for you.
+        </div>
       </div>
     </div>
   );

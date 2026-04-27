@@ -49,6 +49,19 @@ async function CABT_signInWithEmail(email) {
   return { ok: true };
 }
 
+async function CABT_signInWithPassword(email, password) {
+  const sb = await CABT_sb();
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password: password,
+  });
+  if (error) throw error;
+  // Fetch profile after sign-in so caller has the role immediately
+  let profile = null;
+  try { profile = await CABT_currentProfile(); } catch (_e) { /* non-fatal */ }
+  return { session: data.session, profile };
+}
+
 async function CABT_signOut() {
   const sb = await CABT_sb();
   await sb.auth.signOut();
@@ -277,7 +290,7 @@ async function CABT_inviteUser({ email, fullName, role, caId, salesId }) {
 
 Object.assign(window, {
   CABT_api, CABT_getApiMode, CABT_setApiMode, CABT_getApiUrl, CABT_setApiUrl,
-  CABT_signInWithGoogle, CABT_signInWithEmail,
+  CABT_signInWithGoogle, CABT_signInWithEmail, CABT_signInWithPassword,
   CABT_signOut, CABT_currentSession, CABT_currentProfile,
   CABT_sb, CABT_SUPABASE_URL, CABT_SUPABASE_ANON_KEY,
   CABT_ROLE_LABELS, CABT_ROLE_SHORT, CABT_SALES_ROLE_LABELS, CABT_SALES_ROLE_SHORT,
