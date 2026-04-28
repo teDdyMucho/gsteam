@@ -35,14 +35,11 @@ function App() {
   React.useEffect(() => { CABT_setApiMode(t.apiMode); }, [t.apiMode]);
 
   // When in supabase mode and authed, fetch real state
-  React.useEffect(() => {
-    if (t.apiMode !== 'supabase' || !authedSession) return;
-    let cancelled = false;
+  const reloadLive = React.useCallback(() => {
+    if (t.apiMode !== 'supabase') return Promise.resolve();
     setLoadingLive(true);
-    CABT_api.loadState().then(s => {
-      if (cancelled) return;
+    return CABT_api.loadState().then(s => {
       setState(prev => ({ ...prev, ...s }));
-      // Promote profile role into UI role
       if (s.role === 'owner' || s.role === 'admin') setRole('Admin');
       else if (s.role === 'sales') setRole('Sales');
       else setRole('CA');
@@ -51,8 +48,12 @@ function App() {
       console.error('Live load failed:', err);
       setLoadingLive(false);
     });
-    return () => { cancelled = true; };
-  }, [t.apiMode, authedSession]);
+  }, [t.apiMode]);
+
+  React.useEffect(() => {
+    if (t.apiMode !== 'supabase' || !authedSession) return;
+    reloadLive();
+  }, [t.apiMode, authedSession, reloadLive]);
 
   // Theme override: clone selected theme and override accent
   const baseTheme = THEMES[t.theme] || THEMES.editorial;
@@ -206,7 +207,7 @@ function App() {
       case 'pending-clients':  return <AdminPendingClients state={state} theme={theme} navigate={navigate}/>;
       case 'questions':   return <AdminOpenQuestions state={state} theme={theme}/>;
       case 'config':      return <AdminConfig state={state} theme={theme} onUpdate={updateConfig}/>;
-      case 'roster':      return <AdminRoster state={state} theme={theme}/>;
+      case 'roster':      return <AdminRoster state={state} theme={theme} onReload={reloadLive} onToast={showToast}/>;
       case 'more':        return <AdminMore theme={theme} navigate={navigate}/>;
       default: return null;
     }

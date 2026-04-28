@@ -135,9 +135,30 @@ function AdminConfig({ state, theme, onUpdate }) {
   );
 }
 
-function AdminRoster({ state, theme }) {
+function AdminRoster({ state, theme, onReload, onToast }) {
+  const [showInvite, setShowInvite] = React.useState(false);
+  const callerRole = state.me?.role;
+  const canInvite = callerRole === 'owner' || callerRole === 'admin';
   return (
     <div style={{ padding: '8px 16px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {canInvite && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button theme={theme} variant="primary" size="sm" icon="plus" onClick={() => setShowInvite(true)}>
+            Invite
+          </Button>
+        </div>
+      )}
+      {showInvite && (
+        <InviteTeammateModal
+          theme={theme}
+          onClose={() => setShowInvite(false)}
+          onSuccess={(msg) => {
+            setShowInvite(false);
+            if (typeof onToast === 'function') onToast(msg || 'Invited ✓');
+            if (typeof onReload === 'function') onReload();
+          }}
+        />
+      )}
       <div>
         <SectionLabel theme={theme}>Client Associates · {state.cas.length}</SectionLabel>
         <Card theme={theme} padding={0}>
@@ -177,4 +198,150 @@ function AdminRoster({ state, theme }) {
   );
 }
 
-Object.assign(window, { AdminApprovals, AdminConfig, AdminRoster, DiagRow });
+// ── F1.1.1 — Invite Teammate modal ──────────────────────────────────────────
+const INVITE_ERROR_COPY = {
+  forbidden: 'You don\'t have permission to invite teammates.',
+  bad_email: 'That doesn\'t look like a valid email.',
+  missing_display_name: 'Display name is required.',
+  bad_role: 'Pick a role.',
+  weak_password: 'Password must be at least 8 characters.',
+  ca_id_required: 'CA id is required for the Client Associate role.',
+  sales_role_required: 'Pick AM or RDR for sales hires.',
+  sales_id_required: 'Sales id (e.g. AM-02) is required.',
+  create_user_failed: 'Could not create the auth user — email may already exist.',
+  profile_insert_failed: 'Could not create the profile row.',
+  ca_insert_failed: 'Could not create the CA roster row — id may be taken.',
+  sales_insert_failed: 'Could not create the sales-team row — id may be taken.',
+  not_signed_in: 'Your session expired. Sign in again.',
+  invalid_token: 'Your session expired. Sign in again.',
+};
+
+function InviteTeammateModal({ theme, onClose, onSuccess }) {
+  const [email, setEmail] = React.useState('');
+  const [displayName, setDisplayName] = React.useState('');
+  const [role, setRole] = React.useState('ca');
+  const [password, setPassword] = React.useState('');
+  const [caId, setCaId] = React.useState('');
+  const [salesRole, setSalesRole] = React.useState('AM');
+  const [salesId, setSalesId] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [errMsg, setErrMsg] = React.useState(null);
+
+  const ROLE_OPTIONS = [
+    { value: 'owner',      label: 'Owner' },
+    { value: 'admin',      label: 'Admin' },
+    { value: 'integrator', label: 'Fractional Integrator' },
+    { value: 'ca',         label: 'Client Associate' },
+    { value: 'sales',      label: 'Sales' },
+  ];
+  const SALES_ROLE_OPTIONS = [
+    { value: 'AM',  label: 'Account Manager (AM)' },
+    { value: 'RDR', label: 'Relationship Development Rep (RDR)' },
+  ];
+
+  const submit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setErrMsg(null);
+    if (!email.trim()) return setErrMsg('Email is required.');
+    if (!displayName.trim()) return setErrMsg('Display name is required.');
+    if (!password || password.length < 8) return setErrMsg('Password must be at least 8 characters.');
+    if (role === 'ca' && !caId.trim()) return setErrMsg('CA id is required (e.g. CA-04).');
+    if (role === 'sales' && !salesId.trim()) return setErrMsg('Sales id is required (e.g. AM-02).');
+    setSubmitting(true);
+    try {
+      await CABT_inviteUser({
+        email: email.trim(), displayName: displayName.trim(), role, password,
+        caId:  role === 'ca'    ? caId.trim()  : null,
+        salesRole: role === 'sales' ? salesRole : null,
+        salesId:   role === 'sales' ? salesId.trim() : null,
+      });
+      onSuccess('Invited ' + email.trim());
+    } catch (err) {
+      const code = err && err.message;
+      setErrMsg(INVITE_ERROR_COPY[code] || (err.detail ? `${code}: ${err.detail}` : code) || 'Invite failed.');
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: theme.bg, width: '100%', maxWidth: 520, maxHeight: '92vh',
+          borderTopLeftRadius: theme.radius, borderTopRightRadius: theme.radius,
+          padding: '20px 18px 24px', overflowY: 'auto',
+          boxShadow: '0 -8px 32px rgba(0,0,0,0.18)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink }}>Invite teammate</div>
+          <button
+            onClick={onClose}
+            style={{
+              border: 'none', background: 'transparent', color: theme.inkMuted,
+              fontSize: 22, cursor: 'pointer', padding: 4,
+            }}
+          >×</button>
+        </div>
+
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Field label="Email" required theme={theme}>
+            <Input value={email} onChange={setEmail} type="email" placeholder="person@example.com" theme={theme} autoFocus/>
+          </Field>
+          <Field label="Display name" required theme={theme}>
+            <Input value={displayName} onChange={setDisplayName} placeholder="Full name" theme={theme}/>
+          </Field>
+          <Field label="Role" required theme={theme}>
+            <Select value={role} onChange={setRole} options={ROLE_OPTIONS} theme={theme}/>
+          </Field>
+
+          {role === 'ca' && (
+            <Field label="CA id" required hint="e.g. CA-04. Must be unique." theme={theme}>
+              <Input value={caId} onChange={setCaId} placeholder="CA-04" theme={theme}/>
+            </Field>
+          )}
+
+          {role === 'sales' && (
+            <React.Fragment>
+              <Field label="Sales role" required theme={theme}>
+                <Select value={salesRole} onChange={setSalesRole} options={SALES_ROLE_OPTIONS} theme={theme}/>
+              </Field>
+              <Field label="Sales id" required hint="e.g. AM-02 or RDR-03. Must be unique." theme={theme}>
+                <Input value={salesId} onChange={setSalesId} placeholder="AM-02" theme={theme}/>
+              </Field>
+            </React.Fragment>
+          )}
+
+          <Field label="Initial password" required hint="Min 8 chars. Teammate can change later." theme={theme}>
+            <Input value={password} onChange={setPassword} type="password" placeholder="••••••••" theme={theme}/>
+          </Field>
+
+          {errMsg && (
+            <div style={{
+              background: STATUS.red + '15', color: STATUS.red, border: `1px solid ${STATUS.red}33`,
+              borderRadius: theme.radius - 6, padding: '10px 12px', fontSize: 13, lineHeight: 1.4,
+            }}>
+              {errMsg}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <Button theme={theme} variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
+            <Button theme={theme} variant="primary" fullWidth type="submit" disabled={submitting} onClick={submit}>
+              {submitting ? 'Inviting…' : 'Send invite'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { AdminApprovals, AdminConfig, AdminRoster, DiagRow, InviteTeammateModal });

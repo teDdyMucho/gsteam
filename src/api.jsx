@@ -288,14 +288,36 @@ function CABT_roleShort(role, salesRole) {
   return CABT_ROLE_SHORT[role] || role || '?';
 }
 
-async function CABT_inviteUser({ email, fullName, role, caId, salesId }) {
+// F1.1.1 — calls the admin-invite-user Edge Function (server-side service role).
+// Caller must be signed in as owner/admin; integrator + others are rejected with 403.
+async function CABT_inviteUser({ email, displayName, role, password, caId, salesRole, salesId }) {
   const sb = await CABT_sb();
-  const { data, error } = await sb.rpc('invite_user', {
-    p_email: email, p_full_name: fullName, p_role: role,
-    p_ca_id: caId || null, p_sales_id: salesId || null,
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) throw new Error('not_signed_in');
+  const res = await fetch(`${CABT_SUPABASE_URL}/functions/v1/admin-invite-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': CABT_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({
+      email,
+      display_name: displayName,
+      role,
+      password,
+      ca_id: caId || null,
+      sales_role: salesRole || null,
+      sales_id: salesId || null,
+    }),
   });
-  if (error) throw error;
-  return data;
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.ok) {
+    const err = new Error(json.error || ('invite_failed_' + res.status));
+    err.detail = json.detail; err.status = res.status;
+    throw err;
+  }
+  return json;
 }
 
 Object.assign(window, {
