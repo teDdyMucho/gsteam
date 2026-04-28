@@ -1,0 +1,20 @@
+# Local-only handoff + tooling — never deploy, never commit.
+# Per HANDOFF.md: this repo is FLAT (deploy artifact only).
+.claude/
+GS Team/
+_FOR_SLACK/
+
+# Stray nested mirror of src/ — orphan, not used by index.html.
+src/src/
+
+# npm artifacts (this project has no package.json — Babel-in-browser)
+node_modules/
+package-lock.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
