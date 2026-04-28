@@ -151,6 +151,7 @@ function AdminRoster({ state, theme, onReload, onToast }) {
       {showInvite && (
         <InviteTeammateModal
           theme={theme}
+          state={state}
           onClose={() => setShowInvite(false)}
           onSuccess={(msg) => {
             setShowInvite(false);
@@ -216,28 +217,57 @@ const INVITE_ERROR_COPY = {
   invalid_token: 'Your session expired. Sign in again.',
 };
 
-function InviteTeammateModal({ theme, onClose, onSuccess }) {
+// Compute next sequential id like 'CA-03' / 'AM-04' / 'RDR-01'.
+// Strategy: max numeric suffix + 1 (avoids reusing IDs even if rows were deleted).
+function CABT_nextSeqId(prefix, existingIds) {
+  let max = 0;
+  const re = new RegExp('^' + prefix + '-(\\d+)$');
+  for (const id of existingIds || []) {
+    const m = re.exec(String(id || ''));
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
+  }
+  return prefix + '-' + String(max + 1).padStart(2, '0');
+}
+
+function InviteTeammateModal({ theme, state, onClose, onSuccess }) {
+  // formRole is the UI selection; we map AM/RDR back to role='sales' at submit.
+  const [formRole, setFormRole] = React.useState('ca');
   const [email, setEmail] = React.useState('');
   const [displayName, setDisplayName] = React.useState('');
-  const [role, setRole] = React.useState('ca');
   const [password, setPassword] = React.useState('');
-  const [caId, setCaId] = React.useState('');
-  const [salesRole, setSalesRole] = React.useState('AM');
-  const [salesId, setSalesId] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [errMsg, setErrMsg] = React.useState(null);
+
+  // Auto-assigned id, computed from existing roster — recomputed on role change.
+  const autoId = React.useMemo(() => {
+    if (formRole === 'ca')  return CABT_nextSeqId('CA',  (state?.cas   || []).map(c => c.id));
+    if (formRole === 'am')  return CABT_nextSeqId('AM',  (state?.sales || []).filter(s => s.role === 'AM' ).map(s => s.id));
+    if (formRole === 'rdr') return CABT_nextSeqId('RDR', (state?.sales || []).filter(s => s.role === 'RDR').map(s => s.id));
+    return null; // owner/admin/integrator have no roster id
+  }, [formRole, state]);
 
   const ROLE_OPTIONS = [
     { value: 'owner',      label: 'Owner' },
     { value: 'admin',      label: 'Admin' },
     { value: 'integrator', label: 'Fractional Integrator' },
     { value: 'ca',         label: 'Client Associate' },
-    { value: 'sales',      label: 'Sales' },
+    { value: 'am',         label: 'Account Manager' },
+    { value: 'rdr',        label: 'Relationship Development Rep' },
   ];
-  const SALES_ROLE_OPTIONS = [
-    { value: 'AM',  label: 'Account Manager (AM)' },
-    { value: 'RDR', label: 'Relationship Development Rep (RDR)' },
-  ];
+
+  // Translate UI role → DB role + salesRole
+  const dbRoleFor = (fr) => {
+    if (fr === 'am' || fr === 'rdr') return 'sales';
+    return fr;
+  };
+  const dbSalesRoleFor = (fr) => {
+    if (fr === 'am')  return 'AM';
+    if (fr === 'rdr') return 'RDR';
+    return null;
+  };
 
   const submit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -245,15 +275,16 @@ function InviteTeammateModal({ theme, onClose, onSuccess }) {
     if (!email.trim()) return setErrMsg('Email is required.');
     if (!displayName.trim()) return setErrMsg('Display name is required.');
     if (!password || password.length < 8) return setErrMsg('Password must be at least 8 characters.');
-    if (role === 'ca' && !caId.trim()) return setErrMsg('CA id is required (e.g. CA-04).');
-    if (role === 'sales' && !salesId.trim()) return setErrMsg('Sales id is required (e.g. AM-02).');
     setSubmitting(true);
     try {
       await CABT_inviteUser({
-        email: email.trim(), displayName: displayName.trim(), role, password,
-        caId:  role === 'ca'    ? caId.trim()  : null,
-        salesRole: role === 'sales' ? salesRole : null,
-        salesId:   role === 'sales' ? salesId.trim() : null,
+        email: email.trim(),
+        displayName: displayName.trim(),
+        role: dbRoleFor(formRole),
+        password,
+        caId:      formRole === 'ca'                       ? autoId : null,
+        salesRole: dbSalesRoleFor(formRole),
+        salesId:   (formRole === 'am' || formRole === 'rdr') ? autoId : null,
       });
       onSuccess('Invited ' + email.trim());
     } catch (err) {
@@ -299,24 +330,21 @@ function InviteTeammateModal({ theme, onClose, onSuccess }) {
             <Input value={displayName} onChange={setDisplayName} placeholder="Full name" theme={theme}/>
           </Field>
           <Field label="Role" required theme={theme}>
-            <Select value={role} onChange={setRole} options={ROLE_OPTIONS} theme={theme}/>
+            <Select value={formRole} onChange={setFormRole} options={ROLE_OPTIONS} theme={theme}/>
           </Field>
 
-          {role === 'ca' && (
-            <Field label="CA id" required hint="e.g. CA-04. Must be unique." theme={theme}>
-              <Input value={caId} onChange={setCaId} placeholder="CA-04" theme={theme}/>
+          {autoId && (
+            <Field label="Assigned ID" hint="Auto-assigned, next in sequence." theme={theme}>
+              <div style={{
+                display: 'flex', alignItems: 'center', height: 48,
+                background: theme.bgElev, border: `1px solid ${theme.rule}`,
+                borderRadius: theme.radius - 4, padding: '0 14px',
+                color: theme.ink, fontSize: 16, fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {autoId}
+              </div>
             </Field>
-          )}
-
-          {role === 'sales' && (
-            <React.Fragment>
-              <Field label="Sales role" required theme={theme}>
-                <Select value={salesRole} onChange={setSalesRole} options={SALES_ROLE_OPTIONS} theme={theme}/>
-              </Field>
-              <Field label="Sales id" required hint="e.g. AM-02 or RDR-03. Must be unique." theme={theme}>
-                <Input value={salesId} onChange={setSalesId} placeholder="AM-02" theme={theme}/>
-              </Field>
-            </React.Fragment>
           )}
 
           <Field label="Initial password" required hint="Min 8 chars. Teammate can change later." theme={theme}>
