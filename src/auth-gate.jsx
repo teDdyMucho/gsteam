@@ -38,12 +38,12 @@ function AuthGate({ theme, onAuthed }) {
     }
   };
 
-  // On mount: check for existing session; fall back to login form after 4s
+  // On mount: check for existing session; fall back to login form after 2.5s
   React.useEffect(() => {
     let cancelled = false;
     const timeoutId = setTimeout(() => {
       if (!cancelled) setPhase('needs-login');
-    }, 4000);
+    }, 2500);
     (async () => {
       try {
         const session = await CABT_currentSession();
@@ -94,9 +94,20 @@ function AuthGate({ theme, onAuthed }) {
     return (
       <div style={{
         minHeight: '100vh', background: theme.bg, color: theme.inkMuted,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: theme.sans, fontSize: 13,
-      }}>Verifying session…</div>
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        fontFamily: theme.sans, fontSize: 13, gap: 16, padding: 20,
+      }}>
+        <div>Verifying session…</div>
+        <button
+          onClick={() => setPhase('needs-login')}
+          style={{
+            background: 'transparent', border: `1px solid ${theme.rule}`,
+            borderRadius: 999, padding: '8px 16px', fontSize: 12,
+            color: theme.inkSoft, fontFamily: 'inherit', cursor: 'pointer',
+          }}>
+          Skip to sign in
+        </button>
+      </div>
     );
   }
 

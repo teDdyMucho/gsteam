@@ -320,17 +320,25 @@ function App() {
         </div>
       )}
 
-      {/* Content */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative' }}>
+      {/* Content — extra bottom padding so last items aren't hidden behind floating nav */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative', paddingBottom: isPhone ? 96 : 88 }}>
         {renderContent()}
       </div>
 
-      {/* Tab bar */}
+      {/* Floating island tab bar */}
       <div style={{
-        flexShrink: 0, display: 'flex', justifyContent: 'space-around',
-        background: theme.bgElev, borderTop: `1px solid ${theme.rule}`,
-        padding: isPhone ? '6px 8px 24px' : '6px 8px 8px',
-        position: 'relative', zIndex: 10,
+        position: 'absolute',
+        left: 12, right: 12,
+        bottom: isPhone ? 'max(16px, env(safe-area-inset-bottom))' : 14,
+        display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+        background: theme.bgElev,
+        border: `1px solid ${theme.rule}`,
+        borderRadius: 999,
+        padding: '8px 10px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08)',
+        backdropFilter: 'saturate(140%) blur(12px)',
+        WebkitBackdropFilter: 'saturate(140%) blur(12px)',
+        zIndex: 10,
       }}>
         {tabs.map(tb => {
           const active = route.name === tb.name
@@ -344,16 +352,20 @@ function App() {
               }}
               style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                padding: '6px 0', background: 'transparent', border: 'none', cursor: 'pointer',
+                padding: '6px 0',
+                background: active && !tb.primary ? theme.accent + '15' : 'transparent',
+                border: 'none', cursor: 'pointer', borderRadius: 999,
                 color: active ? theme.accent : theme.inkMuted, fontFamily: 'inherit',
+                transition: 'background 0.15s ease',
               }}
             >
               {tb.primary ? (
                 <div style={{
-                  width: 36, height: 36, borderRadius: 18,
+                  width: 40, height: 40, borderRadius: 20,
                   background: theme.accent, color: theme.accentInk,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   marginBottom: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                 }}><Icon name={tb.icon} size={20} stroke={2.2}/></div>
               ) : <Icon name={tb.icon} size={22}/>}
               <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2 }}>{tb.label}</span>
