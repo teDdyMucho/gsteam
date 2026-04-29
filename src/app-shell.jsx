@@ -504,12 +504,15 @@ function App() {
               padding: '12px 12px 0', borderTop: `1px solid ${theme.rule}`,
             }}>gsTeam · Admin</div>
           </nav>
-          {/* Content area — no floating-nav clearance needed when sidebar is active */}
+          {/* Content area — full-width admin console (Bobby asked for full
+             screen on all devices). No floating-nav clearance needed when
+             sidebar is active. Inner content keeps a small horizontal pad
+             so cards don't touch the sidebar border. */}
           <div style={{
             flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative',
             paddingBottom: 32,
           }}>
-            <div style={{ maxWidth: 1024, margin: '0 auto', padding: '0 8px' }}>
+            <div style={{ width: '100%', padding: '0 16px' }}>
               {renderContent()}
             </div>
           </div>
@@ -753,9 +756,7 @@ function App() {
         </IOSDevice>
       ) : isDesktopAdmin ? (
         <div style={{
-          width: '100%', maxWidth: 1280,
-          height: '100dvh', maxHeight: '100dvh',
-          margin: '0 auto', boxShadow: '0 0 0 1px ' + theme.rule,
+          width: '100%', height: '100dvh', maxHeight: '100dvh',
         }}>
           <Body width="100%" height="100dvh" isPhone={false}/>
         </div>
