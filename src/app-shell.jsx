@@ -803,22 +803,27 @@ function LogPickerSheet({ theme, onClose, onPick }) {
     { name: 'log-event',   icon: 'cal',       label: 'Growth event',    desc: 'Workshop, gear sale, milestone' },
     { name: 'log-survey',  icon: 'star',      label: 'Client survey',   desc: 'Satisfaction snapshot' },
   ];
+  // Sheet must sit ABOVE the floating tab bar. Tab bar height ~60px + 14px gap
+  // + safe-area-inset-bottom = the clearance we need below the Cancel button.
   return (
     <div onClick={onClose} style={{
       position: 'absolute', inset: 0, zIndex: 90,
       background: 'rgba(8, 12, 24, 0.45)',
       animation: 'scrimIn .18s ease',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
         width: '100%', background: theme.surface, color: theme.ink,
-        borderTopLeftRadius: 20, borderTopRightRadius: 20,
-        padding: '12px 0 92px', // sits above tab bar
-        boxShadow: '0 -12px 40px rgba(0,0,0,0.18)',
+        borderTopLeftRadius: 24, borderTopRightRadius: 24,
+        // Bottom padding clears the floating tab bar (~60px height + 14px gap
+        // + safe-area-inset-bottom) plus a 16px breathing buffer.
+        padding: '12px 0 calc(env(safe-area-inset-bottom, 0px) + 102px)',
+        boxShadow: '0 -16px 48px rgba(0,0,0,0.22), 0 -2px 8px rgba(0,0,0,0.08)',
         animation: 'sheetIn .22s cubic-bezier(0.2, 0.8, 0.2, 1)',
       }}>
         <div style={{
-          width: 38, height: 4, borderRadius: 2,
+          width: 40, height: 4, borderRadius: 2,
           background: theme.rule, margin: '4px auto 14px',
         }}/>
         <div style={{
@@ -829,12 +834,13 @@ function LogPickerSheet({ theme, onClose, onPick }) {
           What are you logging?
         </div>
         {items.map((it, i) => (
-          <button key={it.name} onClick={() => onPick(it.name)} style={{
+          <button key={it.name} onClick={() => onPick(it.name)} className="cabt-btn-press" style={{
             display: 'flex', alignItems: 'center', gap: 14, width: '100%',
             background: 'transparent', border: 'none',
             padding: '14px 20px', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
             borderTop: i === 0 ? `1px solid ${theme.rule}` : 'none',
             borderBottom: `1px solid ${theme.rule}`,
+            WebkitTapHighlightColor: 'transparent',
           }}>
             <div style={{
               width: 40, height: 40, borderRadius: 10, flexShrink: 0,
@@ -848,11 +854,12 @@ function LogPickerSheet({ theme, onClose, onPick }) {
             <Icon name="chev-r" size={16} color={theme.inkMuted}/>
           </button>
         ))}
-        <button onClick={onClose} style={{
-          display: 'block', width: 'calc(100% - 40px)', margin: '14px 20px 0',
-          padding: '12px', background: 'transparent', border: `1px solid ${theme.rule}`,
-          borderRadius: 12, color: theme.inkSoft, fontSize: 14, fontWeight: 600,
+        <button onClick={onClose} className="cabt-btn-press" style={{
+          display: 'block', width: 'calc(100% - 40px)', margin: '16px 20px 0',
+          padding: '14px', background: 'transparent', border: `1.5px solid ${theme.rule}`,
+          borderRadius: 12, color: theme.ink, fontSize: 15, fontWeight: 600,
           cursor: 'pointer', fontFamily: 'inherit',
+          WebkitTapHighlightColor: 'transparent',
         }}>Cancel</button>
       </div>
     </div>
