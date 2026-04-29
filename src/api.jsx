@@ -77,17 +77,30 @@ async function CABT_signOut() {
   await sb.auth.signOut();
 }
 
+// Race a promise against a timeout so a hung Supabase call can never wedge sign-in.
+// 2026-04-29: Bobby reported "stuck on Verifying session" on reload while logged in.
+// Inner timeout ensures auth-gate's outer fallback isn't the only safety net.
+function _withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout_' + label)), ms)),
+  ]);
+}
+
 async function CABT_currentSession() {
-  const sb = await CABT_sb();
-  const { data: { session } } = await sb.auth.getSession();
+  const sb = await _withTimeout(CABT_sb(), 1500, 'sb_init');
+  const { data: { session } } = await _withTimeout(sb.auth.getSession(), 1500, 'getSession');
   return session;
 }
 
 async function CABT_currentProfile() {
-  const sb = await CABT_sb();
-  const { data: { user } } = await sb.auth.getUser();
+  const sb = await _withTimeout(CABT_sb(), 1500, 'sb_init');
+  const { data: { user } } = await _withTimeout(sb.auth.getUser(), 1500, 'getUser');
   if (!user) return null;
-  const { data, error } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  const { data, error } = await _withTimeout(
+    sb.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+    2000, 'profile_query'
+  );
   if (error) throw error;
   return data;
 }

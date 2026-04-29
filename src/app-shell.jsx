@@ -322,13 +322,17 @@ function App() {
 
       {/* Content — extra bottom padding so last items aren't hidden behind floating nav */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative', paddingBottom: isPhone ? 96 : 88 }}>
-        {renderContent()}
+        <div style={{ maxWidth: !isPhone && role === 'Admin' && vw >= 1100 ? 1024 : '100%', margin: '0 auto' }}>
+          {renderContent()}
+        </div>
       </div>
 
-      {/* Floating island tab bar */}
+      {/* Floating island tab bar — centered with max-width on desktop admin */}
       <div style={{
         position: 'absolute',
-        left: 12, right: 12,
+        ...(!isPhone && role === 'Admin' && vw >= 1100
+          ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px, calc(100% - 32px))' }
+          : { left: 12, right: 12 }),
         bottom: isPhone ? 'max(16px, env(safe-area-inset-bottom))' : 14,
         display: 'flex', justifyContent: 'space-around', alignItems: 'center',
         background: theme.bgElev,
@@ -410,7 +414,11 @@ function App() {
     window.addEventListener('resize', onR);
     return () => window.removeEventListener('resize', onR);
   }, []);
-  const useFrame = t.showFrame && vw >= 720;
+  // Desktop admin mode: wide screen + admin role → full-bleed wide layout (no iPhone frame).
+  // Bobby explicitly asked for desktop-friendly admin (2026-04-29).
+  const isDesktop = vw >= 1100;
+  const isDesktopAdmin = isDesktop && role === 'Admin';
+  const useFrame = t.showFrame && vw >= 720 && !isDesktopAdmin;
   const isTablet = vw >= 720 && vw < 1100;
 
   // Supabase mode requires a signed-in session before rendering the app
@@ -463,6 +471,13 @@ function App() {
         <IOSDevice width={402} height={874} dark={t.theme === 'athletic'}>
           <Body width={402} height={874} isPhone={true}/>
         </IOSDevice>
+      ) : isDesktopAdmin ? (
+        <div style={{
+          width: '100%', maxWidth: 1280, height: '100vh', maxHeight: '100vh',
+          margin: '0 auto', boxShadow: '0 0 0 1px ' + theme.rule,
+        }}>
+          <Body width="100%" height="100vh" isPhone={false}/>
+        </div>
       ) : (
         <div style={{ width: '100%', height: '100vh', maxHeight: '100vh' }}>
           <Body width="100%" height="100vh" isPhone={false}/>
