@@ -505,76 +505,66 @@ function App() {
                 touchAction: 'manipulation',
               }}
             >
-              {/* Radial halo glow behind active icon — soft, premium, Apple-style.
-                 No rectangular pill; just a glowing aura that makes the icon
-                 feel "lit from within". Uses radial-gradient + blur. */}
+              {/* Editorial active treatment — restrained, professional.
+                 - Subtle accent-tinted pill (8% opacity) with soft inset highlight.
+                 - Gold underscore at the bottom of the icon area, matching the
+                   icon.svg gold rule (#B5894A) — a deliberate brand callback.
+                 - No glowing halos. The depth comes from typography weight,
+                   gentle scale, and the gold detail. */}
               {active && !tb.primary && (
                 <span aria-hidden="true" style={{
-                  position: 'absolute', top: 4, left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 44, height: 44, borderRadius: '50%',
-                  background: `radial-gradient(circle, ${theme.accent}55 0%, ${theme.accent}22 40%, transparent 70%)`,
-                  filter: 'blur(2px)',
-                  zIndex: 0,
-                  animation: 'haloIn 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+                  position: 'absolute', inset: '5px 8px',
+                  background: theme.accent + '14',
+                  border: `1px solid ${theme.accent}26`,
+                  borderRadius: 12, zIndex: 0,
+                  boxShadow: `inset 0 1px 0 ${theme.accent}1F`,
+                  animation: 'tabPillIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}/>
               )}
-              {/* Soft inner-circle highlight for active state — subtle ring around icon */}
+              {/* Gold underscore — direct callback to the icon.svg's gold rule.
+                 Not a glow, just a thin editorial mark. */}
               {active && !tb.primary && (
                 <span aria-hidden="true" style={{
-                  position: 'absolute', top: 8, left: '50%',
+                  position: 'absolute', bottom: 6, left: '50%',
                   transform: 'translateX(-50%)',
-                  width: 36, height: 36, borderRadius: '50%',
-                  background: `linear-gradient(180deg, ${theme.accent}22, ${theme.accent}10)`,
-                  border: `1px solid ${theme.accent}33`,
-                  boxShadow: `inset 0 1px 0 ${theme.accent}44`,
-                  zIndex: 0,
-                  animation: 'haloIn 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-                }}/>
-              )}
-              {/* Premium top indicator: slim line that animates in width */}
-              {active && !tb.primary && (
-                <span aria-hidden="true" style={{
-                  position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-                  width: 22, height: 3, borderRadius: '0 0 3px 3px',
-                  background: `linear-gradient(90deg, transparent, ${theme.accent}, transparent)`,
-                  boxShadow: `0 1px 12px ${theme.accent}99, 0 0 4px ${theme.accent}`,
+                  width: 18, height: 1.5,
+                  background: '#B5894A',
+                  borderRadius: 1,
                   zIndex: 3,
-                  animation: 'topBarIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                  animation: 'topBarIn 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}/>
               )}
               {tb.primary ? (
                 <div style={{
-                  width: 48, height: 48, borderRadius: 24,
-                  background: `radial-gradient(circle at 30% 25%, ${theme.accent} 0%, ${theme.accent}D8 60%, ${theme.accent}B0 100%)`,
+                  width: 46, height: 46, borderRadius: 23,
+                  background: theme.accent,
                   color: theme.accentInk,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   marginBottom: 2,
                   boxShadow: active
-                    ? `0 10px 28px ${theme.accent}88, 0 4px 8px ${theme.accent}55, 0 1px 2px rgba(0,0,0,0.25), inset 0 1.5px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.08)`
-                    : `0 8px 20px ${theme.accent}66, 0 2px 4px rgba(0,0,0,0.18), inset 0 1.5px 0 rgba(255,255,255,0.4)`,
-                  transform: active ? 'translateY(-4px) scale(1.06)' : 'translateY(-2px) scale(1)',
-                  transition: 'transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease',
+                    ? `0 8px 20px ${theme.accent}55, 0 1px 3px rgba(14,26,53,0.18), inset 0 1px 0 rgba(255,255,255,0.28)`
+                    : `0 6px 14px ${theme.accent}3D, 0 1px 2px rgba(14,26,53,0.14), inset 0 1px 0 rgba(255,255,255,0.22)`,
+                  transform: active ? 'translateY(-3px)' : 'translateY(-1px)',
+                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease',
                   position: 'relative', zIndex: 1,
-                }}><Icon name={tb.icon} size={22} stroke={2.4}/></div>
+                }}><Icon name={tb.icon} size={22} stroke={2.2}/></div>
               ) : (
                 <span style={{
                   position: 'relative', zIndex: 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transform: active ? 'translateY(-1px) scale(1.08)' : 'translateY(0) scale(1)',
-                  transition: 'transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), filter 0.18s ease',
-                  filter: active ? `drop-shadow(0 0 8px ${theme.accent}88) drop-shadow(0 1px 2px ${theme.accent}33)` : 'none',
-                  marginTop: 4,
+                  transform: active ? 'scale(1.05)' : 'scale(1)',
+                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease',
                 }}>
-                  <Icon name={tb.icon} size={22} stroke={active ? 2.2 : 1.85}/>
+                  <Icon name={tb.icon} size={22} stroke={active ? 2.1 : 1.85}/>
                 </span>
               )}
               <span style={{
                 position: 'relative', zIndex: 1,
                 fontSize: 10.5, fontWeight: active ? 700 : 600,
-                letterSpacing: active ? 0.4 : 0.2,
-                transition: 'font-weight 0.15s ease, color 0.2s ease, letter-spacing 0.2s ease',
-                marginTop: active && !tb.primary ? 4 : 2,
+                letterSpacing: active ? 0.5 : 0.2,
+                textTransform: active ? 'uppercase' : 'none',
+                transition: 'font-weight 0.18s ease, letter-spacing 0.22s ease',
+                marginTop: active && !tb.primary ? 1 : 2,
               }}>{tb.label}</span>
             </button>
           );
