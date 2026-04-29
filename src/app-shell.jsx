@@ -505,66 +505,56 @@ function App() {
                 touchAction: 'manipulation',
               }}
             >
-              {/* Editorial active treatment — restrained, professional.
-                 - Subtle accent-tinted pill (8% opacity) with soft inset highlight.
-                 - Gold underscore at the bottom of the icon area, matching the
-                   icon.svg gold rule (#B5894A) — a deliberate brand callback.
-                 - No glowing halos. The depth comes from typography weight,
-                   gentle scale, and the gold detail. */}
+              {/* Animated gradient pill highlight behind active non-primary tab */}
               {active && !tb.primary && (
                 <span aria-hidden="true" style={{
-                  position: 'absolute', inset: '5px 8px',
-                  background: theme.accent + '14',
-                  border: `1px solid ${theme.accent}26`,
-                  borderRadius: 12, zIndex: 0,
-                  boxShadow: `inset 0 1px 0 ${theme.accent}1F`,
-                  animation: 'tabPillIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                  position: 'absolute', inset: '4px 6px',
+                  background: `linear-gradient(180deg, ${theme.accent}28, ${theme.accent}14)`,
+                  borderRadius: 14, zIndex: 0,
+                  animation: 'tabPillIn 0.24s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: `inset 0 1px 0 ${theme.accent}33`,
                 }}/>
               )}
-              {/* Gold underscore — direct callback to the icon.svg's gold rule.
-                 Not a glow, just a thin editorial mark. */}
+              {/* Tiny gold accent bar indicator above active label */}
               {active && !tb.primary && (
                 <span aria-hidden="true" style={{
-                  position: 'absolute', bottom: 6, left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 18, height: 1.5,
-                  background: '#B5894A',
-                  borderRadius: 1,
-                  zIndex: 3,
-                  animation: 'topBarIn 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
+                  position: 'absolute', top: 2, left: '50%', transform: 'translateX(-50%)',
+                  width: 16, height: 2.5, borderRadius: 2,
+                  background: theme.accent,
+                  boxShadow: `0 0 8px ${theme.accent}99`,
+                  zIndex: 2,
+                  animation: 'tabPillIn 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}/>
               )}
               {tb.primary ? (
                 <div style={{
                   width: 46, height: 46, borderRadius: 23,
-                  background: theme.accent,
+                  background: `linear-gradient(180deg, ${theme.accent} 0%, ${theme.accent}E0 100%)`,
                   color: theme.accentInk,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   marginBottom: 2,
                   boxShadow: active
-                    ? `0 8px 20px ${theme.accent}55, 0 1px 3px rgba(14,26,53,0.18), inset 0 1px 0 rgba(255,255,255,0.28)`
-                    : `0 6px 14px ${theme.accent}3D, 0 1px 2px rgba(14,26,53,0.14), inset 0 1px 0 rgba(255,255,255,0.22)`,
-                  transform: active ? 'translateY(-3px)' : 'translateY(-1px)',
-                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease',
+                    ? `0 8px 22px ${theme.accent}77, 0 2px 4px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.35)`
+                    : `0 6px 16px ${theme.accent}55, 0 2px 4px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)`,
+                  transform: active ? 'translateY(-3px) scale(1.04)' : 'translateY(-1px) scale(1)',
+                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease',
                   position: 'relative', zIndex: 1,
-                }}><Icon name={tb.icon} size={22} stroke={2.2}/></div>
+                }}><Icon name={tb.icon} size={22} stroke={2.4}/></div>
               ) : (
                 <span style={{
                   position: 'relative', zIndex: 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transform: active ? 'scale(1.05)' : 'scale(1)',
-                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), color 0.18s ease',
+                  transform: active ? 'translateY(-1px)' : 'translateY(0)',
+                  transition: 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                  filter: active ? `drop-shadow(0 0 6px ${theme.accent}55)` : 'none',
                 }}>
-                  <Icon name={tb.icon} size={22} stroke={active ? 2.1 : 1.85}/>
+                  <Icon name={tb.icon} size={22} stroke={active ? 2.2 : 1.85}/>
                 </span>
               )}
               <span style={{
                 position: 'relative', zIndex: 1,
-                fontSize: 10.5, fontWeight: active ? 700 : 600,
-                letterSpacing: active ? 0.5 : 0.2,
-                textTransform: active ? 'uppercase' : 'none',
-                transition: 'font-weight 0.18s ease, letter-spacing 0.22s ease',
-                marginTop: active && !tb.primary ? 1 : 2,
+                fontSize: 10.5, fontWeight: active ? 700 : 600, letterSpacing: 0.2,
+                transition: 'font-weight 0.15s ease, color 0.18s ease',
               }}>{tb.label}</span>
             </button>
           );
@@ -665,15 +655,6 @@ function App() {
         @keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
         @keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes tabPillIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
-        @keyframes haloIn {
-          0%   { opacity: 0; transform: translateX(-50%) scale(0.6); }
-          60%  { opacity: 1; transform: translateX(-50%) scale(1.08); }
-          100% { opacity: 1; transform: translateX(-50%) scale(1); }
-        }
-        @keyframes topBarIn {
-          0%   { opacity: 0; transform: translateX(-50%) scaleX(0.2); }
-          100% { opacity: 1; transform: translateX(-50%) scaleX(1); }
-        }
         @keyframes modalIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         body { margin: 0; }
