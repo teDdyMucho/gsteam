@@ -481,29 +481,72 @@ function App() {
           return (
             <button
               key={tb.name}
+              className="cabt-tab-btn"
               onClick={() => {
                 if (tb.name === 'log-picker') { setLogSheet(true); return; }
                 setHistory([]); setRoute({ name: tb.name, params: {} });
               }}
+              aria-label={tb.label}
+              aria-current={active ? 'page' : undefined}
               style={{
-                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                padding: '6px 0',
-                background: active && !tb.primary ? theme.accent + '15' : 'transparent',
-                border: 'none', cursor: 'pointer', borderRadius: 999,
+                position: 'relative', flex: 1,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                padding: '8px 0 6px',
+                minHeight: 48,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                borderRadius: 18,
                 color: active ? theme.accent : theme.inkMuted, fontFamily: 'inherit',
-                transition: 'background 0.15s ease',
+                transition: 'color 0.18s ease, transform 0.08s ease',
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
               }}
             >
+              {/* Animated pill highlight behind active non-primary tab */}
+              {active && !tb.primary && (
+                <span aria-hidden="true" style={{
+                  position: 'absolute', inset: '4px 6px',
+                  background: theme.accent + '1A',
+                  borderRadius: 14, zIndex: 0,
+                  animation: 'tabPillIn 0.22s ease',
+                }}/>
+              )}
+              {/* Tiny accent dot indicator above active label */}
+              {active && !tb.primary && (
+                <span aria-hidden="true" style={{
+                  position: 'absolute', top: 3, left: '50%', transform: 'translateX(-50%)',
+                  width: 4, height: 4, borderRadius: '50%',
+                  background: theme.accent,
+                  zIndex: 2,
+                }}/>
+              )}
               {tb.primary ? (
                 <div style={{
-                  width: 40, height: 40, borderRadius: 20,
+                  width: 44, height: 44, borderRadius: 22,
                   background: theme.accent, color: theme.accentInk,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   marginBottom: 2,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                }}><Icon name={tb.icon} size={20} stroke={2.2}/></div>
-              ) : <Icon name={tb.icon} size={22}/>}
-              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.2 }}>{tb.label}</span>
+                  boxShadow: active
+                    ? '0 6px 18px ' + theme.accent + '66, 0 2px 4px rgba(0,0,0,0.18)'
+                    : '0 4px 12px rgba(0,0,0,0.2)',
+                  transform: active ? 'translateY(-2px)' : 'translateY(0)',
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                  position: 'relative', zIndex: 1,
+                }}><Icon name={tb.icon} size={22} stroke={2.2}/></div>
+              ) : (
+                <span style={{
+                  position: 'relative', zIndex: 1,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transform: active ? 'translateY(-1px)' : 'translateY(0)',
+                  transition: 'transform 0.18s ease',
+                }}>
+                  <Icon name={tb.icon} size={22} stroke={active ? 2.2 : 1.9}/>
+                </span>
+              )}
+              <span style={{
+                position: 'relative', zIndex: 1,
+                fontSize: 10, fontWeight: active ? 700 : 600, letterSpacing: 0.2,
+                transition: 'font-weight 0.15s ease',
+              }}>{tb.label}</span>
             </button>
           );
         })}
@@ -602,9 +645,25 @@ function App() {
         @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
         @keyframes sheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
         @keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes tabPillIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         body { margin: 0; }
         * { box-sizing: border-box; }
         input, select, button, textarea { font-family: inherit; }
+        .cabt-tab-btn:active { transform: scale(0.94); }
+        .cabt-input-wrap { position: relative; }
+        .cabt-input { transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+        .cabt-input:focus { outline: none; box-shadow: 0 0 0 3px var(--cabt-accent-soft, rgba(232,255,90,0.18)); }
+        .cabt-btn-press { transition: transform 0.08s ease, opacity 0.15s ease; }
+        .cabt-btn-press:active { transform: scale(0.97); }
+        .cabt-btn-press:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.001ms !important;
+            transition-duration: 0.001ms !important;
+          }
+        }
       `}</style>
 
       {useFrame ? (

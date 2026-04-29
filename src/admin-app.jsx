@@ -353,31 +353,54 @@ function InviteTeammateModal({ theme, state, onClose, onSuccess }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        position: 'fixed', inset: 0, background: 'rgba(8, 12, 24, 0.55)',
         zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        animation: 'scrimIn 0.18s ease',
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="invite-modal-title"
         style={{
-          background: theme.bg, width: '100%', maxWidth: 520, maxHeight: '92vh',
-          borderTopLeftRadius: theme.radius, borderTopRightRadius: theme.radius,
-          padding: '20px 18px 24px', overflowY: 'auto',
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.18)',
+          background: theme.bg, width: '100%', maxWidth: 520,
+          maxHeight: 'calc(92vh - env(safe-area-inset-bottom, 0px))',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          padding: '14px 18px calc(env(safe-area-inset-bottom, 0px) + 24px)',
+          overflowY: 'auto',
+          boxShadow: '0 -12px 40px rgba(0,0,0,0.32), 0 -2px 8px rgba(0,0,0,0.12)',
+          animation: 'sheetIn 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink }}>Invite teammate</div>
+        {/* Drag-handle indicator (iOS sheet style) */}
+        <div style={{
+          width: 40, height: 4, borderRadius: 2,
+          background: theme.rule,
+          margin: '0 auto 14px',
+        }}/>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div id="invite-modal-title" style={{
+            fontFamily: theme.serif || 'inherit',
+            fontSize: 22, fontWeight: 600, color: theme.ink, letterSpacing: -0.3,
+          }}>Invite teammate</div>
           <button
             onClick={onClose}
+            aria-label="Close"
+            className="cabt-btn-press"
             style={{
-              border: 'none', background: 'transparent', color: theme.inkMuted,
-              fontSize: 22, cursor: 'pointer', padding: 4,
+              width: 36, height: 36, borderRadius: 18,
+              border: 'none', background: theme.bgElev, color: theme.inkSoft,
+              fontSize: 20, cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'inherit',
+              WebkitTapHighlightColor: 'transparent',
             }}
           >×</button>
         </div>
 
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <Field label="Email" required theme={theme}>
             <Input value={email} onChange={setEmail} type="email" placeholder="person@example.com" theme={theme} autoFocus/>
           </Field>
@@ -392,10 +415,10 @@ function InviteTeammateModal({ theme, state, onClose, onSuccess }) {
             <Field label="Assigned ID" hint="Auto-assigned, next in sequence." theme={theme}>
               <div style={{
                 display: 'flex', alignItems: 'center', height: 48,
-                background: theme.bgElev, border: `1px solid ${theme.rule}`,
-                borderRadius: theme.radius - 4, padding: '0 14px',
-                color: theme.ink, fontSize: 16, fontWeight: 600,
-                fontVariantNumeric: 'tabular-nums',
+                background: theme.accent + '12', border: `1px solid ${theme.accent}33`,
+                borderRadius: 12, padding: '0 14px',
+                color: theme.ink, fontSize: 16, fontWeight: 700,
+                fontVariantNumeric: 'tabular-nums', letterSpacing: 0.3,
               }}>
                 {autoId}
               </div>
@@ -409,15 +432,18 @@ function InviteTeammateModal({ theme, state, onClose, onSuccess }) {
           {errMsg && (
             <div style={{
               background: STATUS.red + '15', color: STATUS.red, border: `1px solid ${STATUS.red}33`,
-              borderRadius: theme.radius - 6, padding: '10px 12px', fontSize: 13, lineHeight: 1.4,
+              borderRadius: 12, padding: '12px 14px', fontSize: 13, lineHeight: 1.45,
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+              animation: 'modalIn 0.2s ease',
             }}>
-              {errMsg}
+              <span style={{ flexShrink: 0, marginTop: 1 }}>⚠</span>
+              <span>{errMsg}</span>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
             <Button theme={theme} variant="secondary" onClick={onClose} disabled={submitting}>Cancel</Button>
-            <Button theme={theme} variant="primary" fullWidth type="submit" disabled={submitting} onClick={submit}>
+            <Button theme={theme} variant="primary" fullWidth type="submit" disabled={submitting} loading={submitting} onClick={submit}>
               {submitting ? 'Inviting…' : 'Send invite'}
             </Button>
           </div>
@@ -558,30 +584,65 @@ function EmployeeDetailModal({ theme, kind, row, onClose, onSuccess }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+        position: 'fixed', inset: 0, background: 'rgba(8, 12, 24, 0.55)',
         zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        animation: 'scrimIn 0.18s ease',
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="emp-modal-title"
         style={{
-          background: theme.bg, width: '100%', maxWidth: 520, maxHeight: '92vh',
-          borderTopLeftRadius: theme.radius, borderTopRightRadius: theme.radius,
-          padding: '20px 18px 24px', overflowY: 'auto',
-          boxShadow: '0 -8px 32px rgba(0,0,0,0.18)',
+          background: theme.bg, width: '100%', maxWidth: 520,
+          maxHeight: 'calc(92vh - env(safe-area-inset-bottom, 0px))',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          padding: '14px 18px calc(env(safe-area-inset-bottom, 0px) + 24px)',
+          overflowY: 'auto',
+          boxShadow: '0 -12px 40px rgba(0,0,0,0.32), 0 -2px 8px rgba(0,0,0,0.12)',
+          animation: 'sheetIn 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
+        <div style={{
+          width: 40, height: 4, borderRadius: 2,
+          background: theme.rule,
+          margin: '0 auto 14px',
+        }}/>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: theme.ink }}>
+          <div id="emp-modal-title" style={{
+            fontFamily: theme.serif || 'inherit',
+            fontSize: 22, fontWeight: 600, color: theme.ink, letterSpacing: -0.3,
+          }}>
             {mode === 'reset' ? 'Reset password' : 'Edit teammate'}
           </div>
           <button
             onClick={onClose}
-            style={{ border: 'none', background: 'transparent', color: theme.inkMuted, fontSize: 22, cursor: 'pointer', padding: 4 }}
+            aria-label="Close"
+            className="cabt-btn-press"
+            style={{
+              width: 36, height: 36, borderRadius: 18,
+              border: 'none', background: theme.bgElev, color: theme.inkSoft,
+              fontSize: 20, cursor: 'pointer', padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: 'inherit',
+              WebkitTapHighlightColor: 'transparent',
+            }}
           >×</button>
         </div>
-        <div style={{ fontSize: 13, color: theme.inkMuted, marginBottom: 14 }}>
-          {row.id} · {row.name} · {row.email}
+        <div style={{
+          fontSize: 13, color: theme.inkMuted, marginBottom: 18,
+          display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+        }}>
+          <span style={{
+            fontFamily: theme.mono || 'inherit', fontSize: 11, fontWeight: 700,
+            background: theme.bgElev, padding: '2px 7px', borderRadius: 6,
+            color: theme.ink, letterSpacing: 0.3,
+          }}>{row.id}</span>
+          <span style={{ color: theme.ink, fontWeight: 600 }}>{row.name}</span>
+          <span>·</span>
+          <span>{row.email}</span>
         </div>
 
         {mode === 'edit' && (

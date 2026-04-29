@@ -156,38 +156,48 @@ function Card({ children, theme, padding = 16, style = {} }) {
 }
 
 // ── Button ─────────────────────────────────────────────────────────────────
-function Button({ children, onClick, variant = 'primary', theme, fullWidth = false, disabled = false, size = 'md', icon, type = 'button' }) {
+function Button({ children, onClick, variant = 'primary', theme, fullWidth = false, disabled = false, size = 'md', icon, type = 'button', loading = false }) {
   const sizes = {
-    sm: { h: 36, fs: 14, px: 14 },
-    md: { h: 48, fs: 15, px: 18 },
-    lg: { h: 56, fs: 16, px: 22 },
+    sm: { h: 38, fs: 14, px: 14, r: 10 },
+    md: { h: 48, fs: 15, px: 18, r: 12 },
+    lg: { h: 56, fs: 16, px: 22, r: 14 },
   };
   const s = sizes[size];
   const variants = {
-    primary:   { bg: theme.accent, fg: theme.accentInk, border: 'transparent' },
-    secondary: { bg: theme.surface, fg: theme.ink, border: theme.rule },
-    ghost:     { bg: 'transparent', fg: theme.ink, border: 'transparent' },
-    danger:    { bg: '#E53935', fg: '#fff', border: 'transparent' },
+    primary:   { bg: theme.accent, fg: theme.accentInk, border: 'transparent', shadow: '0 2px 6px rgba(14,26,53,0.10)' },
+    secondary: { bg: theme.surface, fg: theme.ink, border: theme.rule, shadow: 'none' },
+    ghost:     { bg: 'transparent', fg: theme.ink, border: 'transparent', shadow: 'none' },
+    danger:    { bg: '#E53935', fg: '#fff', border: 'transparent', shadow: '0 2px 6px rgba(229,57,53,0.18)' },
   };
   const v = variants[variant];
+  const isDisabled = disabled || loading;
   return (
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled}
+      disabled={isDisabled}
+      className="cabt-btn-press"
       style={{
         height: s.h, padding: `0 ${s.px}px`, fontSize: s.fs, fontWeight: 600,
         background: v.bg, color: v.fg, border: `1px solid ${v.border}`,
-        borderRadius: theme.radius - 4, cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1, width: fullWidth ? '100%' : 'auto',
+        boxShadow: v.shadow,
+        borderRadius: s.r, cursor: isDisabled ? 'not-allowed' : 'pointer',
+        opacity: isDisabled ? 0.55 : 1, width: fullWidth ? '100%' : 'auto',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        fontFamily: 'inherit', letterSpacing: -0.1, transition: 'opacity .15s, transform .15s',
+        fontFamily: 'inherit', letterSpacing: -0.1,
+        WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
+        position: 'relative',
       }}
-      onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.98)'; }}
-      onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
     >
-      {icon && <Icon name={icon} size={s.fs + 2} />}
+      {loading && (
+        <span style={{
+          width: s.fs + 2, height: s.fs + 2, borderRadius: '50%',
+          border: `2px solid ${v.fg}55`, borderTopColor: v.fg,
+          animation: 'spin 0.7s linear infinite',
+          display: 'inline-block', marginRight: 4,
+        }}/>
+      )}
+      {!loading && icon && <Icon name={icon} size={s.fs + 2} />}
       {children}
     </button>
   );
@@ -207,23 +217,29 @@ function Field({ label, required, error, hint, children, theme }) {
   );
 }
 
-function Input({ value, onChange, type = 'text', placeholder, theme, prefix, suffix, inputmode, autoFocus }) {
+function Input({ value, onChange, type = 'text', placeholder, theme, prefix, suffix, inputmode, autoFocus, error }) {
+  const [focused, setFocused] = React.useState(false);
+  const borderColor = error ? STATUS.red : (focused ? theme.accent : theme.rule);
   return (
     <div style={{
       display: 'flex', alignItems: 'center', height: 48,
-      background: theme.bgElev, border: `1px solid ${theme.rule}`,
-      borderRadius: theme.radius - 4,
-      padding: '0 14px', transition: 'border-color .15s',
-    }}
-    onFocus={(e) => e.currentTarget.style.borderColor = theme.accent}
-    onBlur={(e) => e.currentTarget.style.borderColor = theme.rule}
-    >
+      background: theme.bgElev,
+      border: `1px solid ${borderColor}`,
+      borderRadius: 12,
+      padding: '0 14px',
+      transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
+      boxShadow: focused
+        ? `0 0 0 3px ${error ? STATUS.red + '33' : theme.accent + '33'}`
+        : 'none',
+    }}>
       {prefix && <span style={{ color: theme.inkMuted, marginRight: 8, fontSize: 15 }}>{prefix}</span>}
       <input
         type={type}
         inputMode={inputmode}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         placeholder={placeholder}
         autoFocus={autoFocus}
         style={{
@@ -238,12 +254,20 @@ function Input({ value, onChange, type = 'text', placeholder, theme, prefix, suf
 }
 
 function Select({ value, onChange, options, theme, placeholder = '— select —' }) {
+  const [focused, setFocused] = React.useState(false);
   return (
     <div style={{
       display: 'flex', alignItems: 'center', height: 48,
-      background: theme.bgElev, border: `1px solid ${theme.rule}`,
-      borderRadius: theme.radius - 4, padding: '0 14px',
-    }}>
+      background: theme.bgElev,
+      border: `1px solid ${focused ? theme.accent : theme.rule}`,
+      borderRadius: 12, padding: '0 14px',
+      transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
+      boxShadow: focused ? `0 0 0 3px ${theme.accent}33` : 'none',
+      position: 'relative',
+    }}
+    onFocus={() => setFocused(true)}
+    onBlur={() => setFocused(false)}
+    >
       <select
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
