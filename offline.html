@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>gsTeam — No Internet</title>
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#F5EFE4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <style>
@@ -14,8 +14,8 @@
   body {
     font-family: -apple-system, "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background: #FFFFFF;
-    color: #1a1a1a;
+    background: #F5EFE4;
+    color: #0E1A35;
     display: flex; align-items: center; justify-content: center;
     padding:
       max(env(safe-area-inset-top), 24px)
@@ -30,47 +30,67 @@
   }
   .icon-circle {
     width: 132px; height: 132px; border-radius: 50%;
-    background: #FCE8E8;
+    background: rgba(14, 26, 53, 0.08);
     display: flex; align-items: center; justify-content: center;
     margin: 0 auto 28px;
+    position: relative;
   }
-  .icon-circle svg { width: 56px; height: 56px; stroke: #DC2626; }
+  .icon-circle::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    border: 1px solid rgba(14, 26, 53, 0.10);
+  }
+  .icon-circle svg { width: 56px; height: 56px; stroke: #0E1A35; }
   h1 {
-    font-size: 22px; font-weight: 700; color: #0F172A;
-    margin: 0 0 12px; letter-spacing: -0.3px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 24px; font-weight: 600; color: #0E1A35;
+    margin: 0 0 12px; letter-spacing: -0.4px;
   }
   p {
-    font-size: 14.5px; line-height: 1.5; color: #6B7280;
+    font-size: 14.5px; line-height: 1.55; color: #5C6478;
     margin: 0 0 36px; padding: 0 8px;
   }
   .actions { width: 100%; display: flex; flex-direction: column; gap: 12px; }
   button {
-    width: 100%; padding: 16px; border-radius: 16px;
+    width: 100%; padding: 16px; border-radius: 14px;
     font-family: inherit; font-size: 15px; font-weight: 700;
-    cursor: pointer; transition: opacity 0.15s, transform 0.05s;
+    cursor: pointer; transition: opacity 0.15s, transform 0.05s, background 0.15s;
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    letter-spacing: 0.1px;
   }
-  button:active { transform: scale(0.98); }
+  button:active { transform: scale(0.985); }
   .btn-primary {
-    background: #DC2626; color: #FFFFFF; border: none;
+    background: #0E1A35; color: #F5EFE4; border: none;
+    box-shadow: 0 4px 12px rgba(14, 26, 53, 0.18);
   }
-  .btn-primary:hover { background: #B91C1C; }
+  .btn-primary:hover { background: #1a2a4a; }
   .btn-secondary {
-    background: transparent; color: #0F172A; border: 1.5px solid #E5E7EB;
+    background: transparent; color: #0E1A35; border: 1.5px solid rgba(14, 26, 53, 0.18);
   }
-  .btn-secondary:hover { background: #F9FAFB; }
-  .small {
-    font-size: 12px; color: #9CA3AF; margin-top: 24px;
+  .btn-secondary:hover { background: rgba(14, 26, 53, 0.04); }
+  .footer {
+    font-size: 11px; color: #B5894A;
+    margin-top: 28px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;
+  }
+  .accent-bar {
+    width: 28px; height: 2px; background: #B5894A;
+    margin: 14px auto 0;
   }
   /* Online toast — appears when connection restored */
   #onlineToast {
-    position: fixed; left: 50%; top: 24px; transform: translateX(-50%) translateY(-120%);
-    background: #16A34A; color: #FFFFFF; padding: 12px 20px; border-radius: 99px;
-    font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    position: fixed; left: 50%; top: max(env(safe-area-inset-top), 24px);
+    transform: translateX(-50%) translateY(-120%);
+    background: #0E1A35; color: #F5EFE4;
+    padding: 12px 20px; border-radius: 99px;
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     transition: transform 0.3s ease;
     z-index: 100;
+    display: inline-flex; align-items: center; gap: 8px;
   }
   #onlineToast.show { transform: translateX(-50%) translateY(0); }
+  #onlineToast::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: #B5894A;
+  }
 </style>
 </head>
 <body>
@@ -79,7 +99,6 @@
 
 <div class="wrap">
   <div class="icon-circle">
-    <!-- Wifi-off icon, stroke style matching design -->
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <line x1="1" y1="1" x2="23" y2="23"/>
       <path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/>
@@ -104,46 +123,32 @@
     </button>
     <button class="btn-secondary" id="closeBtn" type="button">Close App</button>
   </div>
-  <div class="small">gsTeam</div>
+  <div class="footer">gsTeam</div>
+  <div class="accent-bar"></div>
 </div>
 
 <script>
-  // Refresh button — try to reload main app
   document.getElementById('refreshBtn').addEventListener('click', function () {
-    if (navigator.onLine) {
-      window.location.replace('/');
-    } else {
-      window.location.reload();
-    }
+    if (navigator.onLine) window.location.replace('/');
+    else window.location.reload();
   });
 
-  // Close App — best-effort. Tries window.close() (works for popups);
-  // for PWAs, navigates to about:blank as fallback so user is no longer on site.
   document.getElementById('closeBtn').addEventListener('click', function () {
     window.close();
-    // If still here after 100ms, the close didn't work. Navigate away.
-    setTimeout(function () {
-      window.location.href = 'about:blank';
-    }, 100);
+    setTimeout(function () { window.location.href = 'about:blank'; }, 100);
   });
 
-  // Auto-detect when connection restored — show toast then reload to app
   function onBackOnline() {
     var toast = document.getElementById('onlineToast');
     toast.classList.add('show');
-    setTimeout(function () {
-      window.location.replace('/');
-    }, 800);
+    setTimeout(function () { window.location.replace('/'); }, 800);
   }
   window.addEventListener('online', onBackOnline);
-
-  // Periodic ping to detect actual reachability (navigator.onLine isn't always
-  // accurate — captive portals, flaky carriers etc.)
   setInterval(function () {
     if (!navigator.onLine) return;
     fetch('/manifest.webmanifest', { method: 'HEAD', cache: 'no-store' })
       .then(function (r) { if (r && r.ok) onBackOnline(); })
-      .catch(function () { /* still offline */ });
+      .catch(function () {});
   }, 4000);
 </script>
 </body>
