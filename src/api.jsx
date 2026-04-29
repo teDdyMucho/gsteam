@@ -1,10 +1,20 @@
 // api.jsx — data layer abstraction. Three backends:
 //   - 'local':    in-browser fixtures persisted to localStorage (demo / dev)
 //   - 'sheet':    legacy Google Apps Script Web App (CABT_API_URL)
-//   - 'supabase': production backend (CABT_SUPABASE_URL + CABT_SUPABASE_ANON_KEY)
+//   - 'supabase': production backend
+//
+// Credentials are sourced from window.CABT_CONFIG (set by /config.js,
+// generated at build time from env vars or .env locally). Never hardcoded.
+// See scripts/build-config.js + .env.example.
 
-const CABT_SUPABASE_URL      = 'https://wlaebsifygvnoyridobr.supabase.co';
-const CABT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndsYWVic2lmeWd2bm95cmlkb2JyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMzE4MDgsImV4cCI6MjA5MDkwNzgwOH0.QxNBZWVf7_uA8WQFxSsJbFCqt26bUHOioQXfLt_4zLY';
+const CABT_SUPABASE_URL      = (typeof window !== 'undefined' && window.CABT_CONFIG && window.CABT_CONFIG.SUPABASE_URL)      || '';
+const CABT_SUPABASE_ANON_KEY = (typeof window !== 'undefined' && window.CABT_CONFIG && window.CABT_CONFIG.SUPABASE_ANON_KEY) || '';
+
+if (typeof window !== 'undefined' && (!CABT_SUPABASE_URL || !CABT_SUPABASE_ANON_KEY)) {
+  console.warn('[CABT] window.CABT_CONFIG is missing or incomplete — Supabase mode will fail.\n' +
+               '       Local: copy .env.example to .env, fill in, run `node scripts/build-config.js`.\n' +
+               '       Vercel: set SUPABASE_URL + SUPABASE_ANON_KEY in Project → Settings → Environment Variables.');
+}
 
 const CABT_API_KEY = 'cabt_api_v1';
 
