@@ -202,7 +202,22 @@ async function CABT_currentProfile() {
   return profileResult?.data || null;
 }
 
-const snakeToCamel = (s) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+// Acronym aliases — domain words that need to stay all-caps in the UI shape.
+// snakeToCamel by default produces: assigned_ca → assignedCa. But our local
+// fixtures (data.jsx) and the rest of the app use the all-caps form
+// (assignedCA, salesId stays sales_id → salesId, ae → ae, sdrBookedBy ok…).
+// This map fixes the trailing-acronym cases that don't round-trip cleanly.
+const SNAKE_TO_CAMEL_OVERRIDES = {
+  assigned_ca:    'assignedCA',
+  ca_id:          'caId',         // already correct via default, but explicit
+  sales_id:       'salesId',      // already correct via default
+  ae:             'ae',
+  sdr_booked_by:  'sdrBookedBy',
+};
+const snakeToCamel = (s) => {
+  if (SNAKE_TO_CAMEL_OVERRIDES[s]) return SNAKE_TO_CAMEL_OVERRIDES[s];
+  return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+};
 const camelToSnake = (s) => s.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase());
 const reshape = (obj, transform) => {
   if (Array.isArray(obj)) return obj.map(o => reshape(o, transform));
