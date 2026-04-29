@@ -8,16 +8,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Serif&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
-  html, body { margin: 0; padding: 0; background: #F5EFE4; }
+  html, body { margin: 0; padding: 0; background: #F5EFE4; height: 100%; overflow: hidden; }
   body {
     font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
-    /* Honor iPhone notch / Dynamic Island / home indicator in standalone PWA mode */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
   }
-  #root { min-height: 100vh; }
+  #root { height: 100%; min-height: 100vh; min-height: 100dvh; }
+  /* CSS env() vars are honored inside individual components (top bar, floating
+     tab bar, etc.) so the layout knows where the iPhone notch + home indicator
+     are without inflating the document beyond the viewport. */
 </style>
   <!-- PWA · injected by scripts/build-pwa.sh · build 1777255980 -->
   <link rel="manifest" href="/manifest.webmanifest">
@@ -88,7 +86,7 @@
           .catch(function (e) { console.warn('[CABT] SW registration failed', e); });
       });
     }
-    window.CABT_BUILD = '1777474773';
+    window.CABT_BUILD = '1777475367';
     window.CABT_API_MODE = window.CABT_API_MODE || 'supabase';
   </script>
 </head>

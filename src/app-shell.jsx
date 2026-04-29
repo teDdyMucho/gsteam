@@ -317,9 +317,15 @@ function App() {
       fontFamily: theme.sans, fontSize: 14 * t.fontScale,
       overflow: 'hidden',
     }}>
-      {/* Top bar */}
+      {/* Top bar — uses env(safe-area-inset-top) so the iPhone status bar /
+         Dynamic Island doesn't overlap content in standalone PWA mode. */}
       <div style={{
-        flexShrink: 0, padding: isPhone ? '54px 16px 8px' : '14px 18px 10px',
+        flexShrink: 0,
+        padding: isPhone
+          ? '54px 16px 8px'
+          : 'calc(env(safe-area-inset-top, 0px) + 14px) 18px 10px',
+        paddingLeft: 'calc(env(safe-area-inset-left, 0px) + 18px)',
+        paddingRight: 'calc(env(safe-area-inset-right, 0px) + 18px)',
         background: theme.bg,
         borderBottom: `1px solid ${theme.rule}`,
         position: 'relative', zIndex: 10,
@@ -429,26 +435,33 @@ function App() {
         </div>
       )}
 
-      {/* Content — extra bottom padding so last items aren't hidden behind floating nav */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative', paddingBottom: isPhone ? 96 : 88 }}>
+      {/* Content — extra bottom padding so last items aren't hidden behind floating nav.
+         Adds env(safe-area-inset-bottom) so the home indicator on iOS PWA standalone
+         doesn't overlap the last item. */}
+      <div style={{
+        flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+      }}>
         <div style={{ maxWidth: !isPhone && role === 'Admin' && vw >= 1100 ? 1024 : '100%', margin: '0 auto' }}>
           {renderContent()}
         </div>
       </div>
 
-      {/* Floating island tab bar — centered with max-width on desktop admin */}
+      {/* Floating island tab bar — centered with max-width on desktop admin.
+         Uses calc() with env(safe-area-inset-bottom) to lift above the iPhone
+         home indicator in standalone PWA mode. */}
       <div style={{
         position: 'absolute',
         ...(!isPhone && role === 'Admin' && vw >= 1100
           ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px, calc(100% - 32px))' }
           : { left: 12, right: 12 }),
-        bottom: isPhone ? 'max(16px, env(safe-area-inset-bottom))' : 14,
+        bottom: 'calc(env(safe-area-inset-bottom, 0px) + 14px)',
         display: 'flex', justifyContent: 'space-around', alignItems: 'center',
         background: theme.bgElev,
         border: `1px solid ${theme.rule}`,
         borderRadius: 999,
         padding: '8px 10px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.08)',
         backdropFilter: 'saturate(140%) blur(12px)',
         WebkitBackdropFilter: 'saturate(140%) blur(12px)',
         zIndex: 10,
