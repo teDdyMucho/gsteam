@@ -64,6 +64,15 @@ function AuthGate({ theme, onAuthed }) {
       return;
     }
 
+    // Skip the network round-trip entirely if browser reports offline.
+    // No point burning 2.5s timeouts when we know there's no network.
+    // The onAuthStateChange listener below will pick up the session when the
+    // user comes back online.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setPhase('needs-login');
+      return;
+    }
+
     // Stored session exists — verify it. Long safety net (10s) so we don't
     // flicker to login form on slow networks; the listener below picks it up
     // when Supabase finishes recovery.

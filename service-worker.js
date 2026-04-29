@@ -7,7 +7,7 @@
 //
 // 1777255980 is replaced at build time by scripts/build-pwa.mjs.
 
-const VERSION = '1777476558';
+const VERSION = '1777477362';
 const CACHE   = `cabt-${VERSION}`;
 
 // Files known at install time. Other same-origin requests are cached on first hit.
@@ -90,6 +90,34 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin GETs
   if (url.origin !== self.location.origin) return;
 
+  // Navigation requests get special handling on iOS: ALWAYS prefer /index.html
+  // from cache as the fastest reliable response. Skips weird cache-key matching
+  // edge cases on iOS Safari standalone where '/' and '/index.html' don't match
+  // the same way they do on Android.
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/index.html').then((cached) => {
+        if (cached) {
+          // Have cached shell — return it instantly. Background-update if online.
+          if (navigator.onLine !== false) {
+            fetch('/index.html').then((res) => {
+              if (res && res.status === 200 && res.type === 'basic') {
+                caches.open(CACHE).then((c) => c.put('/index.html', res.clone()));
+              }
+            }).catch(() => {});
+          }
+          return cached;
+        }
+        // No cached shell — try network, then fall back to offline.html
+        return fetch(req).catch(() => caches.match('/offline.html')
+          .then((off) => off || new Response('<h1>Offline</h1>', {
+            headers: { 'Content-Type': 'text/html' }, status: 503,
+          })));
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
@@ -100,10 +128,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE).then((c) => c.put(req, copy));
         return res;
       }).catch(() => {
-        // Offline + not in cache → SPA-style nav falls back to index, then offline page
-        if (req.mode === 'navigate') {
-          return caches.match('/index.html').then((idx) => idx || caches.match('/offline.html'));
-        }
         throw new Error('Offline and no cached response');
       });
     })

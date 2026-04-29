@@ -25,7 +25,11 @@ function App() {
   const [history, setHistory] = React.useState([]);
   const [toast, setToast] = React.useState(null);
   const [pendingSync, setPendingSync] = React.useState(0);
-  const [isOffline, setIsOffline] = React.useState(false);
+  // Initialize from navigator.onLine immediately so OfflineScreen renders on
+  // first paint when offline — no flicker, no waiting for useEffect to fire.
+  const [isOffline, setIsOffline] = React.useState(
+    typeof navigator !== 'undefined' && navigator.onLine === false
+  );
   const [logSheet, setLogSheet] = React.useState(false);
   const [updateWorker, setUpdateWorker] = React.useState(null); // PWA new version
   const [installable, setInstallable] = React.useState(!!window.CABT_INSTALL_PROMPT);
@@ -548,14 +552,16 @@ function App() {
   const useFrame = t.showFrame && vw >= 720 && !isDesktopAdmin;
   const isTablet = vw >= 720 && vw < 1100;
 
-  // No internet on initial open → show dedicated offline screen.
-  // Only blocks before sign-in; once authed, fall back to the inline sync banner
-  // so the user can keep browsing cached data.
+  // No internet on initial open → show dedicated offline screen IMMEDIATELY.
+  // Render before auth-gate so we don't waste 5+ seconds on Supabase timeouts
+  // before showing the offline UI. Once authed and connection drops, the
+  // inline sync banner (lower) handles it instead so user keeps cached data.
   if (t.apiMode === 'supabase' && isOffline && !authedSession) {
     return <OfflineScreen onRetry={() => window.location.reload()}/>;
   }
 
-  // Supabase mode requires a signed-in session before rendering the app
+  // Supabase mode requires a signed-in session before rendering the app.
+  // Skip auth-gate entirely if offline — already handled above.
   if (t.apiMode === 'supabase' && !authedSession) {
     return (
       <AuthGate
