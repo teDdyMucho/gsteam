@@ -34,8 +34,18 @@ function loadDotEnv() {
 
 loadDotEnv();
 
+// Diagnostic: list which SUPABASE_* and VERCEL_* env vars are visible to the
+// build process. Helps debug "value set in dashboard but not picked up".
+const visible = Object.keys(process.env)
+  .filter((k) => k.startsWith('SUPABASE_') || k === 'VERCEL_ENV' || k === 'VERCEL')
+  .sort();
+console.log('[build-config] env keys visible:', visible.length ? visible.join(', ') : '(none)');
+console.log('[build-config] VERCEL_ENV:', process.env.VERCEL_ENV || '(not set)');
+
 const SUPABASE_URL      = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+console.log('[build-config] SUPABASE_URL length:', SUPABASE_URL.length);
+console.log('[build-config] SUPABASE_ANON_KEY length:', SUPABASE_ANON_KEY.length);
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('[build-config] ⚠ Missing SUPABASE_URL or SUPABASE_ANON_KEY.');
