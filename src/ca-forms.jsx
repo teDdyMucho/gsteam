@@ -338,9 +338,7 @@ function LogEventForm({ state, ca, theme, presetClientId, navigate, onSubmit }) 
         </>
       )}
       <Field label="Notes" theme={theme}>
-        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3}
-          style={{ width: '100%', minHeight: 70, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 15, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}
-        />
+        <Textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} rows={3} theme={theme}/>
       </Field>
       <StickyBar theme={theme}>
         <Button theme={theme} variant="secondary" onClick={() => navigate('back')}>Cancel</Button>
@@ -405,9 +403,7 @@ function LogSurveyForm({ state, ca, theme, presetClientId, navigate, onSubmit })
         <Toggle value={form.anonymous} onChange={(v) => setForm({ ...form, anonymous: v })} theme={theme} />
       </div>
       <Field label="Comment" theme={theme}>
-        <textarea value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} rows={3}
-          style={{ width: '100%', minHeight: 70, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 15, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}
-        />
+        <Textarea value={form.comment} onChange={(v) => setForm({ ...form, comment: v })} rows={3} theme={theme}/>
       </Field>
       <Field label="Submitted by" theme={theme}>
         <Input value={ca.name} onChange={() => {}} theme={theme} />

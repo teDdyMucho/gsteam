@@ -570,14 +570,12 @@ function AdminOpenQuestions({ state, theme }) {
                 options={[{value:'high',label:'High'},{value:'medium',label:'Medium'},{value:'low',label:'Low'}]}/>
             </Field>
             <Field label="Question" required theme={theme}>
-              <textarea value={draft.question} onChange={(e) => setDraft({...draft, question: e.target.value})} rows={2}
-                placeholder="What needs to be decided?"
-                style={{ width: '100%', minHeight: 60, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 14, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
+              <Textarea value={draft.question} onChange={(v) => setDraft({...draft, question: v})} rows={2}
+                placeholder="What needs to be decided?" theme={theme}/>
             </Field>
             <Field label="Context" theme={theme}>
-              <textarea value={draft.context} onChange={(e) => setDraft({...draft, context: e.target.value})} rows={2}
-                placeholder="Why this matters / what it blocks"
-                style={{ width: '100%', minHeight: 60, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 14, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
+              <Textarea value={draft.context} onChange={(v) => setDraft({...draft, context: v})} rows={2}
+                placeholder="Why this matters / what it blocks" theme={theme}/>
             </Field>
             <Button theme={theme} variant="primary" fullWidth onClick={submitDraft}>Add question</Button>
           </div>
@@ -644,9 +642,8 @@ function AnswerForm({ onSubmit, theme }) {
   const [val, setVal] = React.useState('');
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <textarea value={val} onChange={(e) => setVal(e.target.value)} rows={2}
-        placeholder="Type the resolved answer…"
-        style={{ width: '100%', minHeight: 50, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 10, fontSize: 13, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
+      <Textarea value={val} onChange={setVal} rows={2}
+        placeholder="Type the resolved answer…" theme={theme}/>
       <Button theme={theme} variant="primary" size="sm"
         onClick={() => { if (val.trim()) { onSubmit(val.trim()); setVal(''); } }}>
         Mark answered
@@ -909,14 +906,8 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
 
           <Card theme={theme} padding={14}>
             <SectionLabel theme={theme}>Internal notes</SectionLabel>
-            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3}
-              placeholder="Anything CAs and other admins should know about this account…"
-              style={{
-                width: '100%', minHeight: 70, background: theme.bgElev,
-                border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12,
-                fontSize: 14, color: theme.ink, fontFamily: 'inherit', outline: 'none',
-                boxSizing: 'border-box', resize: 'vertical',
-              }}/>
+            <Textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} rows={3}
+              placeholder="Anything CAs and other admins should know about this account…" theme={theme}/>
           </Card>
         </>
       )}
@@ -1062,12 +1053,6 @@ function AdminAuditLog({ state, theme }) {
   const clearFilters = () => setFilters({ actorId: '', tableName: '', action: '', fromDate: '', toDate: '' });
   const anyFilter = Object.values(filters).some(Boolean);
 
-  const inputStyle = {
-    fontSize: 12, padding: '6px 8px', borderRadius: 8,
-    border: `1px solid ${theme.rule}`, background: theme.surface,
-    color: theme.ink, fontFamily: 'inherit',
-  };
-
   return (
     <div style={{ padding: '8px 16px 100px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Header */}
@@ -1081,21 +1066,23 @@ function AdminAuditLog({ state, theme }) {
       {/* Filter chips */}
       <Card theme={theme} padding={12}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <select style={inputStyle} value={filters.actorId} onChange={(e) => updateFilter('actorId', e.target.value)}>
-            <option value="">All actors</option>
-            {actors.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <select style={inputStyle} value={filters.tableName} onChange={(e) => updateFilter('tableName', e.target.value)}>
-            <option value="">All tables</option>
-            {tables.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select style={inputStyle} value={filters.action} onChange={(e) => updateFilter('action', e.target.value)}>
-            <option value="">All actions</option>
-            {AUDIT_ACTIONS.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <input type="date" style={{ ...inputStyle, flex: 1, minWidth: 0 }} value={filters.fromDate} onChange={(e) => updateFilter('fromDate', e.target.value)} placeholder="From"/>
-            <input type="date" style={{ ...inputStyle, flex: 1, minWidth: 0 }} value={filters.toDate}   onChange={(e) => updateFilter('toDate',   e.target.value)} placeholder="To"/>
+          <Select theme={theme} value={filters.actorId}
+            onChange={(v) => updateFilter('actorId', v)}
+            placeholder="All actors"
+            options={[{ value: '', label: 'All actors' }, ...actors.map(a => ({ value: a.id, label: a.name }))]}/>
+          <Select theme={theme} value={filters.tableName}
+            onChange={(v) => updateFilter('tableName', v)}
+            placeholder="All tables"
+            options={[{ value: '', label: 'All tables' }, ...tables.map(t => ({ value: t, label: t }))]}/>
+          <Select theme={theme} value={filters.action}
+            onChange={(v) => updateFilter('action', v)}
+            placeholder="All actions"
+            options={[{ value: '', label: 'All actions' }, ...AUDIT_ACTIONS.map(a => ({ value: a, label: a }))]}/>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Input type="date" value={filters.fromDate}
+              onChange={(v) => updateFilter('fromDate', v)} theme={theme}/>
+            <Input type="date" value={filters.toDate}
+              onChange={(v) => updateFilter('toDate', v)} theme={theme}/>
           </div>
         </div>
         {anyFilter && (

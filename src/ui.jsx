@@ -273,6 +273,45 @@ function Input({ value, onChange, type = 'text', placeholder, theme, prefix, suf
   );
 }
 
+// Polished textarea — matches Input visual treatment.
+// Use for multi-line text fields (notes, comments, descriptions).
+function Textarea({ value, onChange, placeholder, theme, rows = 3, error, autoFocus, maxLength }) {
+  const [focused, setFocused] = React.useState(false);
+  const borderColor = error ? STATUS.red : (focused ? theme.accent : theme.rule);
+  return (
+    <div style={{
+      display: 'flex',
+      background: theme.bgElev,
+      border: `1px solid ${borderColor}`,
+      borderRadius: 12,
+      padding: '12px 14px',
+      transition: 'border-color 0.18s ease, box-shadow 0.18s ease',
+      boxShadow: focused
+        ? `0 0 0 3px ${error ? STATUS.red + '33' : theme.accent + '33'}`
+        : 'none',
+    }}>
+      <textarea
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder={placeholder}
+        rows={rows}
+        autoFocus={autoFocus}
+        maxLength={maxLength}
+        style={{
+          flex: 1, width: '100%',
+          border: 'none', background: 'transparent',
+          fontSize: 15, lineHeight: 1.5, color: theme.ink,
+          outline: 'none', fontFamily: 'inherit',
+          resize: 'vertical', minHeight: rows * 22,
+          minWidth: 0,
+        }}
+      />
+    </div>
+  );
+}
+
 // Custom branded dropdown — replaces native <select> so we can fully style
 // the options panel. Renders via React portal to document.body so it escapes
 // any parent with overflow: hidden (the Body container, scroll wrappers, etc).
@@ -572,5 +611,5 @@ function Tabs({ tabs, value, onChange, theme }) {
 
 Object.assign(window, {
   THEMES, STATUS, Icon, StatusPill, ScoreRing, Card, Button,
-  Field, Input, Select, Toggle, StarRating, Banner, Tabs,
+  Field, Input, Textarea, Select, Toggle, StarRating, Banner, Tabs,
 });

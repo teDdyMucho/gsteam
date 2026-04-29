@@ -230,9 +230,9 @@ function LogContractForm({ state, rep, theme, navigate, onSubmit }) {
         </Field>
       )}
       <Field label="Notes" theme={theme}>
-        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3}
+        <Textarea value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} rows={3}
           placeholder="Anything admins should know about this account…"
-          style={{ width: '100%', minHeight: 70, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 15, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
+          theme={theme}/>
       </Field>
 
       <button onClick={() => setShowAdvanced(s => !s)} style={{
@@ -428,8 +428,7 @@ function LogAdjustmentForm({ state, rep, theme, isAdmin, navigate, onSubmit }) {
         <Input type="number" inputmode="decimal" prefix="$" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} theme={theme}/>
       </Field>
       <Field label="Reason" required error={errors.reason} theme={theme}>
-        <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={3}
-          style={{ width: '100%', minHeight: 70, background: theme.bgElev, border: `1px solid ${theme.rule}`, borderRadius: theme.radius - 4, padding: 12, fontSize: 15, color: theme.ink, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', resize: 'vertical' }}/>
+        <Textarea value={form.reason} onChange={(v) => setForm({ ...form, reason: v })} rows={3} theme={theme} error={errors.reason}/>
       </Field>
       <Field label="Linked client" required error={errors.linkedClient}
              hint="Adjustments must tie back to a real account on the books"

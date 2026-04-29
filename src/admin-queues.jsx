@@ -279,13 +279,8 @@ function ReviewCard({ review, state, theme, onAssign }) {
           Assign to client
         </Button>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <input type="text" placeholder="Search clients…" autoFocus
-            value={filter} onChange={(e) => setFilter(e.target.value)}
-            style={{
-              padding: '8px 10px', borderRadius: 8, border: `1px solid ${theme.rule}`,
-              fontSize: 13, fontFamily: 'inherit', background: theme.surface, color: theme.ink,
-            }}/>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Input value={filter} onChange={setFilter} placeholder="Search clients…" autoFocus theme={theme}/>
           {candidates.map(c => (
             <button key={c.id} onClick={() => { onAssign(c.id); setPicking(false); }} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
