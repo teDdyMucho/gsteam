@@ -396,4 +396,158 @@ function ClientRow({ client, sub, lastMetric, needsData, status, theme, onClick,
   );
 }
 
-Object.assign(window, { CAHome, CABook, ClientRow, SectionLabel });
+// ── CA Profile / Me tab ────────────────────────────────────────────────────
+// Shown when the user taps the "Me" tab in the floating nav. Displays a
+// concise summary of the signed-in CA: avatar, name, role badge, email, a
+// few book stats, and a sign-out button.
+function CAProfile({ state, ca, theme, navigate, profile, onSignOut }) {
+  // The active CA might come from local state.cas (demo) or from the joined
+  // Supabase profile. Prefer the live profile if present for name/email.
+  const displayName = (profile && (profile.display_name || profile.displayName)) || (ca && ca.name) || 'You';
+  const email = (profile && profile.email) || (ca && ca.email) || '';
+  const role = (profile && profile.role) || 'ca';
+  const initials = (displayName || 'YOU').split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase();
+
+  // Book stats (only meaningful for CAs with assigned clients)
+  const myClients = ca ? (state.clients || []).filter(c => c.assignedCA === ca.id && !c.cancel_date) : [];
+  const totalRetainer = myClients.reduce((s, c) => s + (c.monthlyRetainer || c.monthly_retainer || 0), 0);
+  const recentSurveys = ca ? (state.surveys || []).filter(s => s.caId === ca.id || s.ca_id === ca.id).length : 0;
+
+  const roleLabel = (typeof CABT_roleLabel === 'function')
+    ? CABT_roleLabel(role, profile && profile.sales_role)
+    : role;
+
+  return (
+    <div style={{ padding: '12px 16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Header card with avatar + name + role */}
+      <Card theme={theme} padding={20}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 32,
+            background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent}CC)`,
+            color: theme.accentInk,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: theme.serif, fontWeight: 600, fontSize: 24, letterSpacing: -0.5,
+            boxShadow: `0 6px 16px ${theme.accent}55, inset 0 1px 0 rgba(255,255,255,0.3)`,
+            flexShrink: 0,
+          }}>{initials}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontFamily: theme.serif, fontSize: 22, fontWeight: 600,
+              color: theme.ink, letterSpacing: -0.3, lineHeight: 1.15,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{displayName}</div>
+            <div style={{ fontSize: 12, color: theme.inkMuted, marginTop: 2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{email}</div>
+            <div style={{ marginTop: 8 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: theme.accent + '18', color: theme.accent,
+                padding: '3px 10px', borderRadius: 999,
+                fontSize: 11, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase',
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: 3, background: theme.accent }}/>
+                {roleLabel}
+              </span>
+              {ca && ca.id && (
+                <span style={{
+                  marginLeft: 6,
+                  fontFamily: theme.mono || 'monospace', fontSize: 11, fontWeight: 600,
+                  color: theme.inkSoft, padding: '3px 8px',
+                  background: theme.bgElev, borderRadius: 6,
+                }}>{ca.id}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Stats grid — only meaningful when CA has a book */}
+      {ca && (
+        <Card theme={theme} padding={0}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+            {[
+              { label: 'Active clients', value: myClients.length },
+              { label: 'Monthly retainer', value: totalRetainer ? '$' + totalRetainer.toLocaleString() : '—' },
+              { label: 'Surveys logged', value: recentSurveys },
+            ].map((s, i) => (
+              <div key={s.label} style={{
+                padding: '16px 12px', textAlign: 'center',
+                borderRight: i < 2 ? `1px solid ${theme.rule}` : 'none',
+              }}>
+                <div style={{
+                  fontFamily: theme.serif, fontSize: 22, fontWeight: 600,
+                  color: theme.ink, letterSpacing: -0.3, lineHeight: 1.1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>{s.value}</div>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: theme.inkMuted,
+                  marginTop: 4, letterSpacing: 0.5, textTransform: 'uppercase',
+                }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Quick links */}
+      <Card theme={theme} padding={0}>
+        {[
+          { icon: 'book', label: 'My accounts', desc: 'View all clients in your book', to: 'book' },
+          { icon: 'chart', label: 'Scorecard', desc: 'Quarterly composite + sub-scores', to: 'scorecard' },
+        ].map((it, i, arr) => (
+          <button
+            key={it.to}
+            onClick={() => navigate(it.to)}
+            className="cabt-btn-press"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              width: '100%', padding: '14px 16px',
+              background: 'transparent', border: 'none',
+              borderBottom: i < arr.length - 1 ? `1px solid ${theme.rule}` : 'none',
+              cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: theme.accent + '15', color: theme.accent,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}><Icon name={it.icon} size={18}/></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: theme.ink }}>{it.label}</div>
+              <div style={{ fontSize: 12, color: theme.inkMuted, marginTop: 1 }}>{it.desc}</div>
+            </div>
+            <Icon name="chev-r" size={16} color={theme.inkMuted}/>
+          </button>
+        ))}
+      </Card>
+
+      {/* Sign out */}
+      {onSignOut && (
+        <button
+          onClick={onSignOut}
+          className="cabt-btn-press"
+          style={{
+            width: '100%', padding: '14px 16px',
+            background: 'transparent', border: `1.5px solid ${theme.rule}`,
+            borderRadius: 14, color: theme.ink,
+            fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
+            cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+          }}
+        >Sign out</button>
+      )}
+
+      <div style={{
+        textAlign: 'center', fontSize: 11, color: theme.inkMuted,
+        letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600,
+        marginTop: 4,
+      }}>
+        gsTeam Scoreboard
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { CAHome, CABook, CAProfile, ClientRow, SectionLabel });
