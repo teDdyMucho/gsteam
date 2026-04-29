@@ -3,39 +3,148 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>gsTeam — Offline</title>
+<title>gsTeam — No Internet</title>
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#0B0E14">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
-  html, body { margin: 0; padding: 0; min-height: 100vh; background: #F5EFE4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
   body {
-    font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased;
-    color: #1a1a1a; display: flex; align-items: center; justify-content: center;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    font-family: -apple-system, "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #FFFFFF;
+    color: #1a1a1a;
+    display: flex; align-items: center; justify-content: center;
+    padding:
+      max(env(safe-area-inset-top), 24px)
+      max(env(safe-area-inset-right), 24px)
+      max(env(safe-area-inset-bottom), 24px)
+      max(env(safe-area-inset-left), 24px);
+    min-height: 100dvh; min-height: 100vh;
   }
-  .wrap { max-width: 360px; padding: 24px; text-align: center; }
-  .icon {
-    width: 56px; height: 56px; border-radius: 14px; background: #0E1A35; color: #F5EFE4;
-    display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;
-    font-family: Georgia, serif; font-weight: 600; font-size: 28px; letter-spacing: -1px;
+  .wrap {
+    width: 100%; max-width: 380px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
   }
-  h1 { font-family: Georgia, serif; font-size: 24px; margin: 0 0 8px; color: #0E1A35; letter-spacing: -0.5px; }
-  p { font-size: 14px; color: #555; line-height: 1.5; margin: 0 0 18px; }
+  .icon-circle {
+    width: 132px; height: 132px; border-radius: 50%;
+    background: #FCE8E8;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 28px;
+  }
+  .icon-circle svg { width: 56px; height: 56px; stroke: #DC2626; }
+  h1 {
+    font-size: 22px; font-weight: 700; color: #0F172A;
+    margin: 0 0 12px; letter-spacing: -0.3px;
+  }
+  p {
+    font-size: 14.5px; line-height: 1.5; color: #6B7280;
+    margin: 0 0 36px; padding: 0 8px;
+  }
+  .actions { width: 100%; display: flex; flex-direction: column; gap: 12px; }
   button {
-    background: #0E1A35; color: #F5EFE4; border: none; border-radius: 999px;
-    padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    width: 100%; padding: 16px; border-radius: 16px;
+    font-family: inherit; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: opacity 0.15s, transform 0.05s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
   }
-  button:hover { background: #1a2a4a; }
-  .small { font-size: 11px; color: #888; margin-top: 24px; }
+  button:active { transform: scale(0.98); }
+  .btn-primary {
+    background: #DC2626; color: #FFFFFF; border: none;
+  }
+  .btn-primary:hover { background: #B91C1C; }
+  .btn-secondary {
+    background: transparent; color: #0F172A; border: 1.5px solid #E5E7EB;
+  }
+  .btn-secondary:hover { background: #F9FAFB; }
+  .small {
+    font-size: 12px; color: #9CA3AF; margin-top: 24px;
+  }
+  /* Online toast — appears when connection restored */
+  #onlineToast {
+    position: fixed; left: 50%; top: 24px; transform: translateX(-50%) translateY(-120%);
+    background: #16A34A; color: #FFFFFF; padding: 12px 20px; border-radius: 99px;
+    font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    transition: transform 0.3s ease;
+    z-index: 100;
+  }
+  #onlineToast.show { transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
+
+<div id="onlineToast">Back online · reloading…</div>
+
 <div class="wrap">
-  <div class="icon">G</div>
-  <h1>You're offline</h1>
-  <p>gsTeam needs an internet connection to load your latest data. Check your connection and try again.</p>
-  <button onclick="location.reload()">Try again</button>
-  <div class="small">Some content may still be cached and accessible — try the home button.</div>
+  <div class="icon-circle">
+    <!-- Wifi-off icon, stroke style matching design -->
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="1" y1="1" x2="23" y2="23"/>
+      <path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/>
+      <path d="M5 12.55a10.94 10.94 0 015.17-2.39"/>
+      <path d="M10.71 5.05A16 16 0 0122.58 9"/>
+      <path d="M1.42 9a15.91 15.91 0 014.7-2.88"/>
+      <path d="M8.53 16.11a6 6 0 016.95 0"/>
+      <line x1="12" y1="20" x2="12.01" y2="20"/>
+    </svg>
+  </div>
+  <h1>No Internet Connection</h1>
+  <p>Please check your Wi-Fi or mobile data and try again.</p>
+  <div class="actions">
+    <button class="btn-primary" id="refreshBtn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/>
+        <path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"/>
+      </svg>
+      Refresh
+    </button>
+    <button class="btn-secondary" id="closeBtn" type="button">Close App</button>
+  </div>
+  <div class="small">gsTeam</div>
 </div>
+
+<script>
+  // Refresh button — try to reload main app
+  document.getElementById('refreshBtn').addEventListener('click', function () {
+    if (navigator.onLine) {
+      window.location.replace('/');
+    } else {
+      window.location.reload();
+    }
+  });
+
+  // Close App — best-effort. Tries window.close() (works for popups);
+  // for PWAs, navigates to about:blank as fallback so user is no longer on site.
+  document.getElementById('closeBtn').addEventListener('click', function () {
+    window.close();
+    // If still here after 100ms, the close didn't work. Navigate away.
+    setTimeout(function () {
+      window.location.href = 'about:blank';
+    }, 100);
+  });
+
+  // Auto-detect when connection restored — show toast then reload to app
+  function onBackOnline() {
+    var toast = document.getElementById('onlineToast');
+    toast.classList.add('show');
+    setTimeout(function () {
+      window.location.replace('/');
+    }, 800);
+  }
+  window.addEventListener('online', onBackOnline);
+
+  // Periodic ping to detect actual reachability (navigator.onLine isn't always
+  // accurate — captive portals, flaky carriers etc.)
+  setInterval(function () {
+    if (!navigator.onLine) return;
+    fetch('/manifest.webmanifest', { method: 'HEAD', cache: 'no-store' })
+      .then(function (r) { if (r && r.ok) onBackOnline(); })
+      .catch(function () { /* still offline */ });
+  }, 4000);
+</script>
 </body>
 </html>

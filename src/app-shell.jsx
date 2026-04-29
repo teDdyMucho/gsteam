@@ -548,6 +548,13 @@ function App() {
   const useFrame = t.showFrame && vw >= 720 && !isDesktopAdmin;
   const isTablet = vw >= 720 && vw < 1100;
 
+  // No internet on initial open → show dedicated offline screen.
+  // Only blocks before sign-in; once authed, fall back to the inline sync banner
+  // so the user can keep browsing cached data.
+  if (t.apiMode === 'supabase' && isOffline && !authedSession) {
+    return <OfflineScreen onRetry={() => window.location.reload()}/>;
+  }
+
   // Supabase mode requires a signed-in session before rendering the app
   if (t.apiMode === 'supabase' && !authedSession) {
     return (
@@ -611,6 +618,101 @@ function App() {
           <Body width="100%" height="100dvh" isPhone={false}/>
         </div>
       )}
+    </div>
+  );
+}
+
+// "No Internet Connection" full-screen page shown when the app opens
+// without connectivity (PWA or browser, iOS or Android).
+// Auto-redirects to /  once the connection is restored.
+function OfflineScreen({ onRetry }) {
+  const [reconnecting, setReconnecting] = React.useState(false);
+
+  React.useEffect(() => {
+    const back = () => {
+      setReconnecting(true);
+      setTimeout(() => window.location.replace('/'), 600);
+    };
+    window.addEventListener('online', back);
+    // Periodic reachability check (navigator.onLine isn't always accurate)
+    const id = setInterval(() => {
+      if (!navigator.onLine) return;
+      fetch('/manifest.webmanifest', { method: 'HEAD', cache: 'no-store' })
+        .then((r) => { if (r && r.ok) back(); })
+        .catch(() => {});
+    }, 4000);
+    return () => { window.removeEventListener('online', back); clearInterval(id); };
+  }, []);
+
+  const closeApp = () => {
+    window.close();
+    setTimeout(() => { window.location.href = 'about:blank'; }, 100);
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', minHeight: '100dvh',
+      background: '#FFFFFF', color: '#1a1a1a',
+      fontFamily: '-apple-system, "Segoe UI", "Helvetica Neue", system-ui, sans-serif',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 'max(env(safe-area-inset-top), 24px) max(env(safe-area-inset-right), 24px) max(env(safe-area-inset-bottom), 24px) max(env(safe-area-inset-left), 24px)',
+    }}>
+      {reconnecting && (
+        <div style={{
+          position: 'fixed', left: '50%', top: 'calc(env(safe-area-inset-top, 0px) + 24px)',
+          transform: 'translateX(-50%)',
+          background: '#16A34A', color: '#FFFFFF',
+          padding: '12px 20px', borderRadius: 999,
+          fontSize: 13, fontWeight: 600,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 100,
+        }}>Back online · reloading…</div>
+      )}
+      <div style={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+        <div style={{
+          width: 132, height: 132, borderRadius: '50%',
+          background: '#FCE8E8',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 28,
+        }}>
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"/>
+            <path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/>
+            <path d="M5 12.55a10.94 10.94 0 015.17-2.39"/>
+            <path d="M10.71 5.05A16 16 0 0122.58 9"/>
+            <path d="M1.42 9a15.91 15.91 0 014.7-2.88"/>
+            <path d="M8.53 16.11a6 6 0 016.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', margin: '0 0 12px', letterSpacing: -0.3 }}>No Internet Connection</h1>
+        <p style={{ fontSize: 14.5, lineHeight: 1.5, color: '#6B7280', margin: '0 0 36px', padding: '0 8px' }}>
+          Please check your Wi-Fi or mobile data and try again.
+        </p>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button onClick={onRetry || (() => window.location.reload())} style={{
+            width: '100%', padding: 16, borderRadius: 16,
+            background: '#DC2626', color: '#FFFFFF', border: 'none',
+            fontFamily: 'inherit', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/>
+              <path d="M20.49 15a9 9 0 01-14.85 3.36L1 14"/>
+            </svg>
+            Refresh
+          </button>
+          <button onClick={closeApp} style={{
+            width: '100%', padding: 16, borderRadius: 16,
+            background: 'transparent', color: '#0F172A', border: '1.5px solid #E5E7EB',
+            fontFamily: 'inherit', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+          }}>
+            Close App
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 24 }}>gsTeam</div>
+      </div>
     </div>
   );
 }
