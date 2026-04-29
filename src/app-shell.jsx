@@ -447,11 +447,16 @@ function App() {
         </div>
       </div>
 
-      {/* Floating island tab bar — centered with max-width on desktop admin.
-         Uses calc() with env(safe-area-inset-bottom) to lift above the iPhone
-         home indicator in standalone PWA mode. */}
+      {/* Floating island tab bar.
+         - In iOS frame mode (desktop preview): position absolute so it stays
+           inside the simulated iPhone frame.
+         - In standalone PWA / mobile / desktop fullbleed: position fixed so
+           it's glued to the viewport bottom regardless of layout height
+           quirks (iOS Safari sometimes makes 100vh exceed visible area).
+         - bottom uses env(safe-area-inset-bottom) to lift above the iPhone
+           home indicator. */}
       <div style={{
-        position: 'absolute',
+        position: isPhone ? 'absolute' : 'fixed',
         ...(!isPhone && role === 'Admin' && vw >= 1100
           ? { left: '50%', transform: 'translateX(-50%)', width: 'min(560px, calc(100% - 32px))' }
           : { left: 12, right: 12 }),
@@ -464,7 +469,7 @@ function App() {
         boxShadow: '0 10px 30px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.08)',
         backdropFilter: 'saturate(140%) blur(12px)',
         WebkitBackdropFilter: 'saturate(140%) blur(12px)',
-        zIndex: 10,
+        zIndex: 100,
       }}>
         {tabs.map(tb => {
           const active = route.name === tb.name
@@ -564,7 +569,7 @@ function App() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      minHeight: '100vh', minHeight: '100dvh',
       backgroundColor: useFrame
         ? (t.theme === 'athletic' ? '#06080C' : t.theme === 'fintech' ? '#EEF1F5' : '#E8E2D5')
         : theme.bg,
@@ -595,14 +600,15 @@ function App() {
         </IOSDevice>
       ) : isDesktopAdmin ? (
         <div style={{
-          width: '100%', maxWidth: 1280, height: '100vh', maxHeight: '100vh',
+          width: '100%', maxWidth: 1280,
+          height: '100dvh', maxHeight: '100dvh',
           margin: '0 auto', boxShadow: '0 0 0 1px ' + theme.rule,
         }}>
-          <Body width="100%" height="100vh" isPhone={false}/>
+          <Body width="100%" height="100dvh" isPhone={false}/>
         </div>
       ) : (
-        <div style={{ width: '100%', height: '100vh', maxHeight: '100vh' }}>
-          <Body width="100%" height="100vh" isPhone={false}/>
+        <div style={{ width: '100%', height: '100dvh', maxHeight: '100dvh' }}>
+          <Body width="100%" height="100dvh" isPhone={false}/>
         </div>
       )}
     </div>
