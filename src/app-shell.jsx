@@ -367,7 +367,7 @@ function App() {
               aria-label="Sign out"
               className="cabt-btn-press"
               style={{
-                width: 30, height: 28, padding: 0,
+                width: 32, height: 28, padding: '0 4px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'transparent',
                 border: `1px solid ${theme.rule}`,
@@ -375,9 +375,20 @@ function App() {
                 color: theme.inkSoft,
                 cursor: 'pointer', fontFamily: 'inherit',
                 WebkitTapHighlightColor: 'transparent',
+                transition: 'color 0.15s ease, border-color 0.15s ease, background 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = '#C62828';
+                e.currentTarget.style.borderColor = '#C62828' + '55';
+                e.currentTarget.style.background = '#C62828' + '0F';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = theme.inkSoft;
+                e.currentTarget.style.borderColor = theme.rule;
+                e.currentTarget.style.background = 'transparent';
               }}
             >
-              <Icon name="x" size={14} stroke={2.2}/>
+              <Icon name="logout" size={15} stroke={2}/>
             </button>
           )}
         </div>
