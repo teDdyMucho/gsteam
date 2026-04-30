@@ -481,6 +481,11 @@ const EDIT_ERROR_COPY = {
   bad_role: 'Pick a valid role.',
   bad_sales_role: 'Sales sub-role must be AM or RDR.',
   missing_display_name: 'Display name is required.',
+  missing_email: 'Email is required.',
+  bad_email: 'Enter a valid email address.',
+  domain_not_allowed: 'Email must be @groundstandard.com.',
+  email_in_use: 'That email is already used by another teammate.',
+  email_update_failed: 'Could not update the email.',
   weak_password: 'Password must be at least 8 characters.',
   no_changes: 'Nothing to save — no fields changed.',
   self_role_change_blocked: 'You can\'t change your own role.',
@@ -524,6 +529,7 @@ function EmployeeDetailModal({ theme, kind, row, onClose, onSuccess }) {
 
   // ── edit-form state ─────────────────────────────────────────────
   const [displayName, setDisplayName] = React.useState(row.name || '');
+  const [email, setEmail] = React.useState(row.email || '');
   // For CA, role select offers ca/admin/integrator (no promote-to-sales).
   // For sales, role select offers AM/RDR/admin/integrator (no promote-to-ca).
   // Underlying DB role is 'sales' for AM/RDR; sub-role goes to sales_team.role.
@@ -564,6 +570,10 @@ function EmployeeDetailModal({ theme, kind, row, onClose, onSuccess }) {
     const patch = {};
     const trimmedName = displayName.trim();
     if (trimmedName && trimmedName !== (row.name || '')) patch.displayName = trimmedName;
+    const trimmedEmail = email.trim().toLowerCase();
+    if (trimmedEmail && trimmedEmail !== (row.email || '').toLowerCase()) {
+      patch.email = trimmedEmail;
+    }
     const newDbRole      = dbRoleFor(formRole);
     const newDbSalesRole = dbSalesRoleFor(formRole);
     const oldDbRole      = isCa ? 'ca' : 'sales';
@@ -703,6 +713,10 @@ function EmployeeDetailModal({ theme, kind, row, onClose, onSuccess }) {
           <form onSubmit={submitEdit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Field label="Display name" required theme={theme}>
               <Input value={displayName} onChange={setDisplayName} placeholder="Full name" theme={theme}/>
+            </Field>
+
+            <Field label="Email" required hint="Must be @groundstandard.com. Changing this will sign them out." theme={theme}>
+              <Input type="email" value={email} onChange={setEmail} placeholder="person@groundstandard.com" theme={theme}/>
             </Field>
 
             <Field label="Role" theme={theme}>
