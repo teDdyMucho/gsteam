@@ -145,6 +145,8 @@ function App() {
     const apply = ({ table, eventType, new: row, old }) => {
       const collectionByTable = {
         clients: 'clients',
+        cas: 'cas',
+        sales_team: 'sales',
         monthly_metrics: 'monthlyMetrics',
         growth_events: 'growthEvents',
         surveys: 'surveys',
@@ -174,7 +176,8 @@ function App() {
       });
     };
     CABT_subscribeRealtime([
-      'clients', 'monthly_metrics', 'growth_events', 'surveys',
+      'clients', 'cas', 'sales_team',
+      'monthly_metrics', 'growth_events', 'surveys',
       'adjustments', 'weekly_checkins', 'monthly_checkins', 'pending_clients',
     ], apply).then(fn => { if (cancelled) fn?.(); else unsub = fn; });
     return () => { cancelled = true; if (unsub) unsub(); };
