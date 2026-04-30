@@ -32,6 +32,11 @@ function App() {
   );
   const [logSheet, setLogSheet] = React.useState(false);
   const [updateWorker, setUpdateWorker] = React.useState(null); // PWA new version
+  // Branded confirm dialog (replaces native window.confirm). Set with
+  // askConfirm({ title, message, danger?, confirmLabel?, onConfirm }).
+  const [confirmState, setConfirmState] = React.useState(null);
+  const askConfirm = (opts) => setConfirmState(opts);
+  const closeConfirm = () => setConfirmState(null);
   const [installable, setInstallable] = React.useState(!!window.CABT_INSTALL_PROMPT);
   const [installed, setInstalled] = React.useState(false);
 
@@ -255,7 +260,13 @@ function App() {
         case 'log-event': return <LogEventForm state={state} ca={ca} theme={theme} presetClientId={route.params.clientId} navigate={navigate} onSubmit={submitEvent}/>;
         case 'log-survey': return <LogSurveyForm state={state} ca={ca} theme={theme} presetClientId={route.params.clientId} navigate={navigate} onSubmit={submitSurvey}/>;
         case 'scorecard': return <CAScorecard state={state} ca={ca} theme={theme} viz={t.scorecardViz}/>;
-        case 'profile': return <CAProfile state={state} ca={ca} theme={theme} navigate={navigate} profile={authedProfile} onSignOut={t.apiMode === 'supabase' && authedProfile ? async () => { if (!window.confirm('Sign out of gsTeam?')) return; try { await CABT_signOut(); } catch (_e) {} setAuthedSession(null); setAuthedProfile(null); } : null}/>;
+        case 'profile': return <CAProfile state={state} ca={ca} theme={theme} navigate={navigate} profile={authedProfile} onSignOut={t.apiMode === 'supabase' && authedProfile ? () => askConfirm({
+          title: 'Sign out of gsTeam?',
+          message: "You'll need to sign in again next time.",
+          confirmLabel: 'Sign out',
+          danger: true,
+          onConfirm: async () => { try { await CABT_signOut(); } catch (_e) {} setAuthedSession(null); setAuthedProfile(null); closeConfirm(); },
+        }) : null}/>;
         default: return null;
       }
     }
@@ -284,7 +295,13 @@ function App() {
       case 'audit-log':   return <AdminAuditLog state={state} theme={theme}/>;
       case 'config':      return <AdminConfig state={state} theme={theme} onUpdate={updateConfig}/>;
       case 'roster':      return <AdminRoster state={state} theme={theme} onReload={reloadLive} onToast={showToast}/>;
-      case 'more':        return <AdminMore theme={theme} navigate={navigate} profile={authedProfile} onSignOut={t.apiMode === 'supabase' && authedSession ? async () => { if (!window.confirm('Sign out of gsTeam?')) return; try { await CABT_signOut(); } catch (_e) {} setAuthedSession(null); setAuthedProfile(null); } : null}/>;
+      case 'more':        return <AdminMore theme={theme} navigate={navigate} profile={authedProfile} onSignOut={t.apiMode === 'supabase' && authedSession ? () => askConfirm({
+        title: 'Sign out of gsTeam?',
+        message: "You'll need to sign in again next time.",
+        confirmLabel: 'Sign out',
+        danger: true,
+        onConfirm: async () => { try { await CABT_signOut(); } catch (_e) {} setAuthedSession(null); setAuthedProfile(null); closeConfirm(); },
+      }) : null}/>;
       default: return null;
     }
   };
@@ -784,6 +801,23 @@ function App() {
           <Body width="100%" height="100dvh" isPhone={false}/>
         </div>
       )}
+      {/* Branded confirm dialog — portal-rendered, centered on viewport,
+         responsive across mobile + desktop. Replaces window.confirm(). */}
+      <ConfirmDialog
+        open={!!confirmState}
+        theme={theme}
+        title={confirmState?.title}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel || 'Confirm'}
+        cancelLabel={confirmState?.cancelLabel || 'Cancel'}
+        danger={!!confirmState?.danger}
+        onConfirm={() => {
+          const fn = confirmState?.onConfirm;
+          if (fn) Promise.resolve(fn()).finally(closeConfirm);
+          else closeConfirm();
+        }}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 }

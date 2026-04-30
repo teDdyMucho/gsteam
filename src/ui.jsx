@@ -610,7 +610,104 @@ function Tabs({ tabs, value, onChange, theme }) {
   );
 }
 
+// ── Branded confirm dialog (replaces native window.confirm) ──────────────
+// Renders centered on viewport via portal, sized for both mobile + desktop.
+// Backdrop click + Escape both cancel.
+function ConfirmDialog({ open, theme, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, onConfirm, onCancel }) {
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onCancel && onCancel(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  const dangerColor = '#C62828';
+  const dialog = (
+    <div
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cabt-confirm-title"
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(8, 12, 24, 0.55)',
+        backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        zIndex: 2000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding:
+          'max(env(safe-area-inset-top), 20px)' +
+          ' max(env(safe-area-inset-right), 20px)' +
+          ' max(env(safe-area-inset-bottom), 20px)' +
+          ' max(env(safe-area-inset-left), 20px)',
+        animation: 'scrimIn 0.18s ease',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 400,
+          background: theme.bg, color: theme.ink,
+          borderRadius: 18,
+          padding: '24px 22px 20px',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.32), 0 4px 12px rgba(0,0,0,0.14)',
+          animation: 'modalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          fontFamily: theme.sans,
+        }}
+      >
+        <div id="cabt-confirm-title" style={{
+          fontFamily: theme.serif || 'inherit',
+          fontSize: 20, fontWeight: 600, color: theme.ink,
+          letterSpacing: -0.3, lineHeight: 1.25, marginBottom: 8,
+        }}>{title}</div>
+        {message && (
+          <div style={{
+            fontSize: 14, color: theme.inkMuted, lineHeight: 1.55, marginBottom: 22,
+          }}>{message}</div>
+        )}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="cabt-btn-press"
+            style={{
+              flex: 1, padding: '13px 16px', borderRadius: 12,
+              background: 'transparent', color: theme.ink,
+              border: `1.5px solid ${theme.rule}`,
+              fontFamily: 'inherit', fontSize: 14.5, fontWeight: 600,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+            }}
+          >{cancelLabel}</button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            autoFocus
+            className="cabt-btn-press"
+            style={{
+              flex: 1.2, padding: '13px 16px', borderRadius: 12,
+              background: danger ? dangerColor : theme.accent,
+              color: danger ? '#FFFFFF' : theme.accentInk,
+              border: 'none',
+              fontFamily: 'inherit', fontSize: 14.5, fontWeight: 700,
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              boxShadow: danger
+                ? '0 4px 12px rgba(198,40,40,0.30)'
+                : `0 4px 12px ${theme.accent}55`,
+            }}
+          >{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (typeof document !== 'undefined' && ReactDOM.createPortal)
+    ? ReactDOM.createPortal(dialog, document.body)
+    : dialog;
+}
+
 Object.assign(window, {
   THEMES, STATUS, Icon, StatusPill, ScoreRing, Card, Button,
   Field, Input, Textarea, Select, Toggle, StarRating, Banner, Tabs,
+  ConfirmDialog,
 });
