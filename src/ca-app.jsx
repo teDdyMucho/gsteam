@@ -33,13 +33,20 @@ function CAHome({ state, ca, theme, density, navigate }) {
   const thisWeekStart = isoMondayOf(new Date());
   const weeklyCheckins = state.weeklyCheckins || [];
   const monthlyCheckins = state.monthlyCheckins || [];
-  const missingCheckin = myClients.filter(c => {
-    const cadence = c.loggingCadence || 'monthly';
-    if (cadence === 'weekly') {
-      return !weeklyCheckins.some(w => w.clientId === c.id && w.weekStart === thisWeekStart);
-    }
-    return !monthlyCheckins.some(m => m.clientId === c.id && m.month === currentMonth);
-  });
+  const missingCheckin = myClients
+    .filter(c => {
+      const cadence = c.loggingCadence || 'monthly';
+      if (cadence === 'weekly') {
+        return !weeklyCheckins.some(w => w.clientId === c.id && w.weekStart === thisWeekStart);
+      }
+      return !monthlyCheckins.some(m => m.clientId === c.id && m.month === currentMonth);
+    })
+    // Weekly clients first (more time-sensitive than monthly)
+    .sort((a, b) => {
+      const ca = (a.loggingCadence || 'monthly') === 'weekly' ? 0 : 1;
+      const cb = (b.loggingCadence || 'monthly') === 'weekly' ? 0 : 1;
+      return ca - cb || a.name.localeCompare(b.name);
+    });
 
   // Recent activity (logged by this CA)
   const recentActivity = [
@@ -239,6 +246,18 @@ function CAHome({ state, ca, theme, density, navigate }) {
               />
             );
           })}
+          {missingCheckin.length > 4 && (
+            <PromptRow
+              key="more-checkins"
+              theme={theme}
+              icon="chev-r"
+              tone="info"
+              title={`+ ${missingCheckin.length - 4} more check-ins to log`}
+              detail="View all"
+              onClick={() => navigate('book', { filter: 'needs-data' })}
+              isLast={false}
+            />
+          )}
           {missingThisMonth.slice(0, 4).map((c, i) => (
             <PromptRow
               key={c.id}

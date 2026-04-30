@@ -135,6 +135,51 @@ function App() {
     reloadLive();
   }, [t.apiMode, authedSession, reloadLive]);
 
+  // Realtime sync — when any user (or this user from another tab) inserts/updates/
+  // deletes a row, splice it into local state so the UI reflects it without a refresh.
+  // Each event shape: { table, eventType, new, old } already in UI camelCase.
+  React.useEffect(() => {
+    if (t.apiMode !== 'supabase' || !authedSession) return;
+    let unsub = null;
+    let cancelled = false;
+    const apply = ({ table, eventType, new: row, old }) => {
+      const collectionByTable = {
+        clients: 'clients',
+        monthly_metrics: 'monthlyMetrics',
+        growth_events: 'growthEvents',
+        surveys: 'surveys',
+        adjustments: 'adjustments',
+        weekly_checkins: 'weeklyCheckins',
+        monthly_checkins: 'monthlyCheckins',
+        pending_clients: 'pendingClients',
+      };
+      const key = collectionByTable[table];
+      if (!key) return;
+      setState(s => {
+        const list = s[key] || [];
+        if (eventType === 'INSERT') {
+          if (!row || list.some(x => x.id === row.id)) return s; // idempotent
+          return { ...s, [key]: [...list, row] };
+        }
+        if (eventType === 'UPDATE') {
+          if (!row) return s;
+          return { ...s, [key]: list.map(x => x.id === row.id ? { ...x, ...row } : x) };
+        }
+        if (eventType === 'DELETE') {
+          const id = (old && old.id) || (row && row.id);
+          if (!id) return s;
+          return { ...s, [key]: list.filter(x => x.id !== id) };
+        }
+        return s;
+      });
+    };
+    CABT_subscribeRealtime([
+      'clients', 'monthly_metrics', 'growth_events', 'surveys',
+      'adjustments', 'weekly_checkins', 'monthly_checkins', 'pending_clients',
+    ], apply).then(fn => { if (cancelled) fn?.(); else unsub = fn; });
+    return () => { cancelled = true; if (unsub) unsub(); };
+  }, [t.apiMode, authedSession]);
+
   // Theme override: clone selected theme and override accent
   const baseTheme = THEMES[t.theme] || THEMES.editorial;
   const theme = { ...baseTheme, accent: t.accentColor || baseTheme.accent };

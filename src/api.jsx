@@ -440,6 +440,37 @@ async function loadStateSupabase() {
   };
 }
 
+// ── Realtime sync ───────────────────────────────────────────────────────────
+// Supabase Postgres Changes — every INSERT/UPDATE/DELETE on the listed tables
+// fires onEvent({ table, eventType, new, old }). RLS still applies (Postgres
+// only emits events the caller is allowed to read).
+//
+// Returns an `unsubscribe` function. Call it from React useEffect cleanup.
+async function CABT_subscribeRealtime(tables, onEvent) {
+  if (CABT_getApiMode() !== 'supabase') return () => {};
+  const sb = await CABT_sb();
+  const channel = sb.channel('cabt-state-sync');
+  for (const t of tables) {
+    channel.on('postgres_changes',
+      { event: '*', schema: 'public', table: t },
+      (payload) => {
+        try {
+          onEvent({
+            table: t,
+            eventType: payload.eventType,        // 'INSERT' | 'UPDATE' | 'DELETE'
+            new: payload.new ? toUI(payload.new) : null,
+            old: payload.old ? toUI(payload.old) : null,
+          });
+        } catch (e) { console.warn('[realtime onEvent]', t, e); }
+      });
+  }
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') console.info('[CABT] realtime subscribed to', tables.length, 'tables');
+    else if (status === 'CHANNEL_ERROR') console.warn('[CABT] realtime channel error');
+  });
+  return () => { try { sb.removeChannel(channel); } catch (_e) {} };
+}
+
 const CABT_ROLE_LABELS  = { owner:'Owner', admin:'Admin', integrator:'Fractional Integrator', ca:'Client Associate', sales:'Sales' };
 const CABT_ROLE_SHORT   = { owner:'Owner', admin:'Admin', integrator:'FI', ca:'CA', sales:'Sales' };
 const CABT_SALES_ROLE_LABELS = { AM:'Account Manager', RDR:'Relationship Development Rep' };
