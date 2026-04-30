@@ -460,7 +460,7 @@ function RatesCard({ theme, clientId, initial, rep, onSave }) {
           ? <>Inherited from <strong style={{ color: theme.ink }}>{rep.name}</strong>'s defaults at contract creation. Override here for this client only.</>
           : <>No Account Manager assigned; rates apply only if an AM is later linked.</>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
         <Field label="Upfront %" theme={theme}>
           <Input type="number" inputmode="decimal" value={up} onChange={setUp} placeholder="0.10" theme={theme}/>
         </Field>

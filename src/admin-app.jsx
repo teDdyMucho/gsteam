@@ -780,7 +780,7 @@ function EmployeeDetailModal({ theme, kind, row, onClose, onSuccess }) {
                 <div style={{ fontSize: 12, color: theme.inkMuted, marginTop: 2, marginBottom: 8, lineHeight: 1.4 }}>
                   Auto-applied to new contracts this rep books. Admin can still override per-contract from the client edit screen.
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
                   <Field label="Upfront %" theme={theme}>
                     <Input type="number" inputmode="decimal" value={upfrontRate} onChange={setUpfrontRate} placeholder="0.10" theme={theme}/>
                   </Field>
