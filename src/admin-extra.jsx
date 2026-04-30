@@ -427,7 +427,7 @@ function AdminClientRollup({ state, theme, navigate }) {
 }
 
 // ── Per-Client Calc ─────────────────────────────────────────────────────────
-function AdminClientCalc({ state, theme, clientId, navigate }) {
+function AdminClientCalc({ state, theme, clientId, navigate, onSetCadence }) {
   const c = state.clients.find(cl => cl.id === clientId);
   if (!c) return <div style={{ padding: 24 }}>Client not found.</div>;
   const sub = CABT_clientSubScores(c, state.monthlyMetrics, state.surveys, state.config);
@@ -487,6 +487,36 @@ function AdminClientCalc({ state, theme, clientId, navigate }) {
       </div>
 
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {onSetCadence && (
+          <Card theme={theme} padding={14}>
+            <SectionLabel theme={theme}>Logging cadence</SectionLabel>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              {['monthly', 'weekly'].map(opt => {
+                const active = (c.loggingCadence || 'monthly') === opt;
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => !active && onSetCadence(c.id, opt)}
+                    style={{
+                      flex: 1, padding: '10px 12px', borderRadius: 8,
+                      background: active ? (theme.accentSoft || 'rgba(215,255,61,0.12)') : 'transparent',
+                      border: `1.5px solid ${active ? (theme.accent || '#D7FF3D') : theme.rule}`,
+                      color: theme.ink, fontWeight: active ? 700 : 500, fontSize: 13,
+                      cursor: active ? 'default' : 'pointer', textAlign: 'center',
+                      fontFamily: 'inherit', textTransform: 'capitalize',
+                    }}>
+                    {opt}
+                    {active && <span style={{ marginLeft: 6, fontSize: 10, color: theme.inkMuted, fontWeight: 600 }}>· current</span>}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 11, color: theme.inkMuted, marginTop: 8, lineHeight: 1.4 }}>
+              Controls how the CA logs narrative check-ins. Monthly snapshots (MRR, total students) stay monthly regardless.
+            </div>
+          </Card>
+        )}
+
         <Card theme={theme} padding={14}>
           <SectionLabel theme={theme}>Inputs (last {recent.length} months)</SectionLabel>
           <Row label="Revenue"
@@ -796,6 +826,7 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
     hasMembershipAddon:   false,
     membershipStartDate: '',
     stripeTruthMode:     'stripe_wins', // stripe_wins | ca_wins | lower_of_both
+    loggingCadence:      'monthly',     // weekly | monthly (TICKET-2)
     notes:               '',
   }));
   const [errors, setErrors] = React.useState({});
@@ -861,6 +892,7 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
       midPct:           Number(form.midPct),
       endPct:           Number(form.endPct),
       stripeTruthMode:  form.stripeTruthMode,
+      loggingCadence:   form.loggingCadence,
       notes:            form.notes,
     };
 
@@ -1010,6 +1042,14 @@ function AdminAddClient({ state, theme, navigate, onSubmit, presetFromStripe }) 
                   { value: 'stripe_wins',    label: 'Stripe wins (auto-overwrite, show diff)' },
                   { value: 'ca_wins',        label: 'CA wins (Stripe is informational only)' },
                   { value: 'lower_of_both',  label: 'Score the lower of the two' },
+                ]} theme={theme}/>
+            </Field>
+            <div style={{ height: 10 }}/>
+            <Field label="Logging cadence" hint="How often does the CA log narrative check-ins for this client? Monthly snapshots (MRR + students) stay monthly regardless." theme={theme}>
+              <Select value={form.loggingCadence} onChange={(v) => setForm({ ...form, loggingCadence: v })}
+                options={[
+                  { value: 'monthly', label: 'Monthly — one check-in per month' },
+                  { value: 'weekly',  label: 'Weekly — check-in every week' },
                 ]} theme={theme}/>
             </Field>
           </Card>

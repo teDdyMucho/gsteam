@@ -24,6 +24,23 @@ function CAHome({ state, ca, theme, density, navigate }) {
     !state.surveys.some(s => s.clientId === c.id && new Date(s.date) >= cutoff)
   );
 
+  // Cadence-aware narrative check-in prompts (TICKET-2c)
+  const isoMondayOf = (d) => {
+    const x = new Date(d); const day = x.getDay() || 7;
+    if (day !== 1) x.setDate(x.getDate() - (day - 1));
+    return x.toISOString().slice(0, 10);
+  };
+  const thisWeekStart = isoMondayOf(new Date());
+  const weeklyCheckins = state.weeklyCheckins || [];
+  const monthlyCheckins = state.monthlyCheckins || [];
+  const missingCheckin = myClients.filter(c => {
+    const cadence = c.loggingCadence || 'monthly';
+    if (cadence === 'weekly') {
+      return !weeklyCheckins.some(w => w.clientId === c.id && w.weekStart === thisWeekStart);
+    }
+    return !monthlyCheckins.some(m => m.clientId === c.id && m.month === currentMonth);
+  });
+
   // Recent activity (logged by this CA)
   const recentActivity = [
     ...state.monthlyMetrics
@@ -35,6 +52,12 @@ function CAHome({ state, ca, theme, density, navigate }) {
     ...state.surveys
       .filter(s => s.submittedBy === ca.id)
       .map(s => ({ kind: 'survey', date: s.date, item: s, label: 'Survey', clientId: s.clientId })),
+    ...weeklyCheckins
+      .filter(w => myClients.some(c => c.id === w.clientId))
+      .map(w => ({ kind: 'checkin', date: w.weekStart, item: w, label: 'Weekly check-in', clientId: w.clientId })),
+    ...monthlyCheckins
+      .filter(m => myClients.some(c => c.id === m.clientId))
+      .map(m => ({ kind: 'checkin', date: m.month, item: m, label: 'Monthly check-in', clientId: m.clientId })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
   const bonusColor = STATUS[status];
@@ -191,16 +214,31 @@ function CAHome({ state, ca, theme, density, navigate }) {
         <SectionLabel theme={theme}>
           <span>Today's prompts</span>
           <span style={{ fontWeight: 500, color: theme.inkMuted, textTransform: 'none', letterSpacing: 0 }}>
-            {missingThisMonth.length + noRecentSurvey.length} open
+            {missingThisMonth.length + noRecentSurvey.length + missingCheckin.length} open
           </span>
         </SectionLabel>
         <Card theme={theme} padding={0}>
-          {missingThisMonth.length === 0 && noRecentSurvey.length === 0 && (
+          {missingThisMonth.length === 0 && noRecentSurvey.length === 0 && missingCheckin.length === 0 && (
             <div style={{ padding: '24px 16px', textAlign: 'center', color: theme.inkMuted, fontSize: 14 }}>
               <Icon name="check" size={28} color={STATUS.green} />
               <div style={{ marginTop: 6 }}>You're caught up. Nice work.</div>
             </div>
           )}
+          {missingCheckin.slice(0, 4).map((c, i) => {
+            const cadence = c.loggingCadence || 'monthly';
+            return (
+              <PromptRow
+                key={'k-' + c.id}
+                theme={theme}
+                icon="edit"
+                tone="info"
+                title={`Log ${cadence === 'weekly' ? "this week's" : "this month's"} check-in for ${c.name}`}
+                detail={cadence === 'weekly' ? 'Weekly cadence · narrative' : 'Monthly cadence · narrative'}
+                onClick={() => navigate('log-checkin', { clientId: c.id })}
+                isLast={false}
+              />
+            );
+          })}
           {missingThisMonth.slice(0, 4).map((c, i) => (
             <PromptRow
               key={c.id}

@@ -13,7 +13,14 @@ function ClientDetail({ state, ca, theme, clientId, navigate }) {
   const cMetrics = state.monthlyMetrics.filter(m => m.clientId === client.id).sort((a,b) => b.month.localeCompare(a.month));
   const cEvents = state.growthEvents.filter(e => e.clientId === client.id).sort((a,b) => b.date.localeCompare(a.date));
   const cSurveys = state.surveys.filter(s => s.clientId === client.id).sort((a,b) => b.date.localeCompare(a.date));
+  const cWeekly  = (state.weeklyCheckins  || []).filter(w => w.clientId === client.id);
+  const cMonthly = (state.monthlyCheckins || []).filter(m => m.clientId === client.id);
+  const cTimeline = [
+    ...cWeekly.map(w => ({ kind: 'weekly',  date: w.weekStart, item: w })),
+    ...cMonthly.map(m => ({ kind: 'monthly', date: m.month,    item: m })),
+  ].sort((a, b) => b.date.localeCompare(a.date));
   const lastMetric = cMetrics[0];
+  const cadence = client.loggingCadence || 'monthly';
 
   return (
     <div style={{ paddingBottom: 100 }}>
@@ -49,6 +56,7 @@ function ClientDetail({ state, ca, theme, clientId, navigate }) {
       <Tabs
         tabs={[
           { value: 'overview', label: 'Overview' },
+          { value: 'timeline', label: `Timeline · ${cTimeline.length}` },
           { value: 'metrics',  label: `Metrics · ${cMetrics.length}` },
           { value: 'events',   label: `Events · ${cEvents.length}` },
           { value: 'surveys',  label: `Surveys · ${cSurveys.length}` },
@@ -89,6 +97,49 @@ function ClientDetail({ state, ca, theme, clientId, navigate }) {
             <KV theme={theme} label="Membership" value={client.hasMembershipAddon ? 'Yes' : '—'} />
             <KV theme={theme} label="AE"         value={state.sales.find(s => s.id === client.ae)?.name || '—'} last />
           </Card>
+        </div>
+      )}
+
+      {tab === 'timeline' && (
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 12, background: theme.bgSoft || 'rgba(255,255,255,0.04)', border: `1px solid ${theme.rule}` }}>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: theme.inkMuted, textTransform: 'uppercase' }}>Cadence</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: theme.ink, textTransform: 'capitalize' }}>{cadence}</span>
+            </div>
+            <Button theme={theme} icon="plus" size="sm" onClick={() => navigate('log-checkin', { clientId })}>Log check-in</Button>
+          </div>
+          {cTimeline.length === 0 && <EmptyState theme={theme} text="No check-ins logged yet." />}
+          {cTimeline.map(t => {
+            const it = t.item;
+            const periodLabel = t.kind === 'weekly'
+              ? `Week of ${CABT_fmtDate(t.date)}`
+              : CABT_fmtMonth(t.date);
+            return (
+              <Card theme={theme} key={it.id} padding={14}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: theme.ink, fontFamily: theme.serif, letterSpacing: -0.2 }}>{periodLabel}</div>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: theme.bg || '#0B0E14', background: theme.accent || '#D7FF3D', padding: '2px 6px', borderRadius: 3, letterSpacing: 0.5, textTransform: 'uppercase' }}>{t.kind}</span>
+                </div>
+                {[
+                  ['concern',       'Concern'],
+                  ['win',           'Win'],
+                  ['accountAction', 'Account-side action'],
+                  ['agencyAction',  'Agency-side action'],
+                ].map(([k, label]) => (
+                  it[k] ? (
+                    <div key={k} style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: theme.inkMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: theme.ink, lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>{it[k]}</div>
+                    </div>
+                  ) : null
+                ))}
+                {it.notes && (
+                  <div style={{ fontSize: 12, color: theme.inkMuted, lineHeight: 1.4, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${theme.rule}`, whiteSpace: 'pre-wrap' }}>{it.notes}</div>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 

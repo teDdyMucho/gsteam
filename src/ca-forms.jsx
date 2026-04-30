@@ -443,4 +443,157 @@ function LogSurveyForm({ state, ca, theme, presetClientId, navigate, onSubmit })
   );
 }
 
-Object.assign(window, { LogMetricsForm, LogEventForm, LogSurveyForm, StickyBar, FormShell });
+// ── Smart-card form for Check-in (TICKET-2) ────────────────────────────────
+// Narrative-only check-in. Routes to weekly_checkins or monthly_checkins
+// based on the picked client's logging_cadence. Same 4 narrative fields
+// regardless of cadence.
+function LogCheckinForm({ state, ca, theme, presetClientId, navigate, onSubmit }) {
+  const myClients = state.clients.filter(c => c.assignedCA === ca.id && !c.cancelDate);
+  const initialClient = presetClientId || (myClients[0]?.id ?? '');
+  const initialClientObj = state.clients.find(c => c.id === initialClient);
+  const cadence = initialClientObj?.loggingCadence || 'monthly';
+
+  // Compute current period start: ISO Monday of the current week, or first-of-month
+  const today = new Date();
+  const isoMonday = (() => {
+    const d = new Date(today);
+    const day = d.getDay() || 7;            // Sun = 7
+    if (day !== 1) d.setDate(d.getDate() - (day - 1));
+    return d.toISOString().slice(0, 10);
+  })();
+  const firstOfMonth = today.toISOString().slice(0, 7) + '-01';
+
+  const [form, setForm] = React.useState({
+    clientId: initialClient,
+    period: cadence === 'weekly' ? isoMonday : firstOfMonth,
+    concern: '',
+    win: '',
+    accountAction: '',
+    agencyAction: '',
+    notes: '',
+  });
+  const [errors, setErrors] = React.useState({});
+
+  const updateForm = (key, value) => {
+    setForm(prev => {
+      const next = { ...prev, [key]: value };
+      // If switching client, reset period to match the new client's cadence
+      if (key === 'clientId') {
+        const c = state.clients.find(cl => cl.id === value);
+        const newCadence = c?.loggingCadence || 'monthly';
+        next.period = newCadence === 'weekly' ? isoMonday : firstOfMonth;
+      }
+      return next;
+    });
+    if (errors[key]) setErrors(e => ({ ...e, [key]: null }));
+  };
+
+  const selectedClient = state.clients.find(c => c.id === form.clientId);
+  const activeCadence = selectedClient?.loggingCadence || 'monthly';
+
+  const validate = () => {
+    const e = {};
+    if (!form.clientId) e.clientId = 'Required';
+    if (!form.period)   e.period   = 'Required';
+    // At least ONE narrative field must be filled (otherwise why log?)
+    if (!form.concern && !form.win && !form.accountAction && !form.agencyAction) {
+      e.body = 'Fill at least one of: concern, win, account-side, agency-side.';
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
+    const idPrefix = activeCadence === 'weekly' ? 'WC' : 'MC';
+    const periodKey = activeCadence === 'weekly' ? 'weekStart' : 'month';
+    const row = {
+      id: `${idPrefix}-${Date.now()}`,
+      caId: ca.id,
+      clientId: form.clientId,
+      [periodKey]: form.period,
+      concern: form.concern || null,
+      win: form.win || null,
+      accountAction: form.accountAction || null,
+      agencyAction: form.agencyAction || null,
+      notes: form.notes || null,
+    };
+    onSubmit(row, activeCadence);
+  };
+
+  const periodLabel = activeCadence === 'weekly' ? 'Week starting (Mon)' : 'Month';
+
+  return (
+    <FormShell theme={theme} gap={12}>
+      <div style={{ fontSize: 13, color: theme.inkSoft, padding: '0 4px' }}>
+        Narrative check-in. Routes to {activeCadence === 'weekly' ? 'weekly' : 'monthly'} log based on the client's cadence.
+      </div>
+
+      <Card theme={theme} padding={14}>
+        <Field label="Client" required error={errors.clientId} theme={theme}>
+          <Select
+            value={form.clientId}
+            onChange={(v) => updateForm('clientId', v)}
+            options={myClients.map(c => ({
+              value: c.id,
+              label: `${c.name} · ${c.loggingCadence || 'monthly'}`,
+            }))}
+            theme={theme}
+          />
+        </Field>
+        <div style={{ height: 10 }}/>
+        <Field label={periodLabel} required error={errors.period} theme={theme}>
+          {activeCadence === 'weekly'
+            ? <Input type="date" value={form.period} onChange={(v) => updateForm('period', v)} theme={theme}/>
+            : <Input type="month" value={form.period?.slice(0,7)} onChange={(v) => updateForm('period', v + '-01')} theme={theme}/>
+          }
+        </Field>
+        <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 12, background: theme.bgSoft || 'rgba(255,255,255,0.04)', border: `1px solid ${theme.rule}` }}>
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, color: theme.inkMuted, textTransform: 'uppercase' }}>Cadence</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: theme.ink, textTransform: 'capitalize' }}>{activeCadence}</span>
+        </div>
+      </Card>
+
+      <Card theme={theme} padding={14}>
+        <Field label="Concern" hint="Anything blocking results, churn risk, escalations" theme={theme}>
+          <Textarea value={form.concern} onChange={(v) => updateForm('concern', v)} rows={3} placeholder="What's worrying you about this account?" theme={theme}/>
+        </Field>
+        <div style={{ height: 10 }}/>
+        <Field label="Win" hint="Wins worth flagging — milestone, member feedback, growth" theme={theme}>
+          <Textarea value={form.win} onChange={(v) => updateForm('win', v)} rows={3} placeholder="What went right?" theme={theme}/>
+        </Field>
+      </Card>
+
+      <Card theme={theme} padding={14}>
+        <Field label="Account-side action" hint="What the client owner/staff needs to do" theme={theme}>
+          <Textarea value={form.accountAction} onChange={(v) => updateForm('accountAction', v)} rows={3} placeholder="What does the client need to do?" theme={theme}/>
+        </Field>
+        <div style={{ height: 10 }}/>
+        <Field label="Agency-side action" hint="What you / the agency need to do next" theme={theme}>
+          <Textarea value={form.agencyAction} onChange={(v) => updateForm('agencyAction', v)} rows={3} placeholder="What's our next move?" theme={theme}/>
+        </Field>
+      </Card>
+
+      <Card theme={theme} padding={14}>
+        <Field label="Notes (optional)" theme={theme}>
+          <Textarea value={form.notes} onChange={(v) => updateForm('notes', v)} rows={2} placeholder="Anything else worth flagging…" theme={theme}/>
+        </Field>
+      </Card>
+
+      {errors.body && (
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(220, 60, 60, 0.08)', border: `1px solid rgba(220, 60, 60, 0.3)`, color: '#dc3c3c', fontSize: 13 }}>
+          {errors.body}
+        </div>
+      )}
+
+      <StickyBar theme={theme}>
+        <Button theme={theme} variant="secondary" onClick={() => navigate('back')}>Cancel</Button>
+        <Button theme={theme} variant="primary" fullWidth onClick={handleSubmit}>
+          Save {activeCadence} check-in
+        </Button>
+      </StickyBar>
+    </FormShell>
+  );
+}
+
+Object.assign(window, { LogMetricsForm, LogEventForm, LogSurveyForm, LogCheckinForm, StickyBar, FormShell });

@@ -268,6 +268,8 @@ const CABT_api = {
     if (mode === 'supabase') return loadStateSupabase();
   },
   async submitMonthlyMetrics(row) { return route('submitMonthlyMetrics', row, 'monthly_metrics'); },
+  async submitWeeklyCheckin(row)  { return route('submitWeeklyCheckin',  row, 'weekly_checkins'); },
+  async submitMonthlyCheckin(row) { return route('submitMonthlyCheckin', row, 'monthly_checkins'); },
   async submitEvent(row)          { return route('submitEvent',          row, 'growth_events'); },
   async submitSurvey(row)         { return route('submitSurvey',         row, 'surveys'); },
   async submitContract(row)       { return route('submitContract',       row, 'clients'); },
@@ -412,7 +414,7 @@ async function loadStateSheet() {
 
 async function loadStateSupabase() {
   const sb = await CABT_sb();
-  const [profile, cas, sales, clients, mm, ge, sv, adj, cfg, pending, oq] = await Promise.all([
+  const [profile, cas, sales, clients, mm, ge, sv, adj, cfg, pending, oq, wc, mc] = await Promise.all([
     CABT_currentProfile(),
     sb.from('cas').select('*').order('id'),
     sb.from('sales_team').select('*').order('id'),
@@ -424,6 +426,8 @@ async function loadStateSupabase() {
     sb.from('config').select('values').eq('id', 1).maybeSingle(),
     sb.from('pending_clients').select('*').eq('status', 'pending'),
     sb.from('open_questions').select('*'),
+    sb.from('weekly_checkins').select('*'),
+    sb.from('monthly_checkins').select('*'),
   ]);
   return {
     _live: true, me: profile, role: profile?.role,
@@ -432,6 +436,7 @@ async function loadStateSupabase() {
     growthEvents: toUI(ge.data || []), surveys: toUI(sv.data || []),
     adjustments: toUI(adj.data || []), config: cfg.data?.values || {},
     pendingClients: toUI(pending.data || []), openQuestions: toUI(oq.data || []),
+    weeklyCheckins: toUI(wc.data || []), monthlyCheckins: toUI(mc.data || []),
   };
 }
 

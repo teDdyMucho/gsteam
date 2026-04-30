@@ -177,6 +177,22 @@ function App() {
     ...s, monthlyMetrics: isEdit ? s.monthlyMetrics.map(m => m.id === row.id ? row : m) : [...s.monthlyMetrics, row],
   }), 'Monthly metrics saved');
   const submitEvent = (row) => queueOrApply(s => ({ ...s, growthEvents: [...s.growthEvents, row] }), 'Event saved');
+  const submitCheckin = async (row, cadence) => {
+    if (CABT_getApiMode() === 'supabase') {
+      try {
+        if (cadence === 'weekly') await CABT_api.submitWeeklyCheckin(row);
+        else                      await CABT_api.submitMonthlyCheckin(row);
+        showToast(`${cadence === 'weekly' ? 'Weekly' : 'Monthly'} check-in saved`);
+        navigate('back');
+      } catch (e) { showToast('Save failed'); console.error('[submitCheckin]', e); }
+    } else {
+      // Local mode — keep narrative in a local-only collection so devs can preview UI
+      setState(s => ({ ...s, [cadence === 'weekly' ? 'weeklyCheckins' : 'monthlyCheckins']:
+        [...(s[cadence === 'weekly' ? 'weeklyCheckins' : 'monthlyCheckins'] || []), row] }));
+      showToast(`${cadence === 'weekly' ? 'Weekly' : 'Monthly'} check-in saved`);
+      navigate('back');
+    }
+  };
   const submitSurvey = (row) => queueOrApply(s => ({ ...s, surveys: [...s.surveys, row] }), 'Survey saved');
   const submitContract = (row) => queueOrApply(s => ({ ...s, clients: [...s.clients, row] }), 'Contract logged');
   const submitClient = (row) => queueOrApply(s => ({
@@ -193,6 +209,15 @@ function App() {
   const approveAdj = (id) => { setState(s => ({ ...s, adjustments: s.adjustments.map(a => a.id === id ? { ...a, status: 'Paid' } : a) })); showToast('Approved'); };
   const rejectAdj = (id) => { setState(s => ({ ...s, adjustments: s.adjustments.map(a => a.id === id ? { ...a, status: 'Rejected' } : a) })); showToast('Rejected'); };
   const assignCA = (cid, caId) => { setState(s => ({ ...s, clients: s.clients.map(c => c.id === cid ? { ...c, assignedCA: caId } : c) })); showToast('CA assigned'); };
+  const setCadence = async (cid, cadence) => {
+    setState(s => ({ ...s, clients: s.clients.map(c => c.id === cid ? { ...c, loggingCadence: cadence } : c) }));
+    if (CABT_getApiMode() === 'supabase') {
+      try { await CABT_api.updateClient(cid, { loggingCadence: cadence }); showToast(`Cadence: ${cadence}`); }
+      catch (e) { showToast('Cadence save failed'); console.error('[setCadence]', e); }
+    } else {
+      showToast(`Cadence: ${cadence}`);
+    }
+  };
   const updateConfig = (cfg) => { setState(s => ({ ...s, config: cfg })); showToast('Config saved'); navigate('back'); };
   const syncNow = () => { setPendingSync(0); setIsOffline(false); setTweak('demoOffline', false); showToast('Synced ✓'); };
   const resetData = () => { CABT_resetState(); setState(CABT_loadState()); showToast('Reset to seed'); };
@@ -259,6 +284,7 @@ function App() {
         case 'log-metrics': return <LogMetricsForm state={state} ca={ca} theme={theme} presetClientId={route.params.clientId} editingId={route.params.editingId} navigate={navigate} onSubmit={submitMetrics}/>;
         case 'log-event': return <LogEventForm state={state} ca={ca} theme={theme} presetClientId={route.params.clientId} navigate={navigate} onSubmit={submitEvent}/>;
         case 'log-survey': return <LogSurveyForm state={state} ca={ca} theme={theme} presetClientId={route.params.clientId} navigate={navigate} onSubmit={submitSurvey}/>;
+        case 'log-checkin': return <LogCheckinForm state={state} ca={ca} theme={theme} presetClientId={route.params.clientId} navigate={navigate} onSubmit={submitCheckin}/>;
         case 'scorecard': return <CAScorecard state={state} ca={ca} theme={theme} viz={t.scorecardViz}/>;
         case 'profile': return <CAProfile state={state} ca={ca} theme={theme} navigate={navigate} profile={authedProfile} onSignOut={t.apiMode === 'supabase' && authedProfile ? () => askConfirm({
           title: 'Sign out of gsTeam?',
@@ -288,7 +314,7 @@ function App() {
       case 'bonus':       return <AdminAnnualBonus state={state} theme={theme}/>;
       case 'revenue':     return <AdminRevenueLedger state={state} theme={theme}/>;
       case 'clients':         return <AdminClientRollup state={state} theme={theme} navigate={navigate}/>;
-      case 'client-calc':      return <AdminClientCalc state={state} theme={theme} clientId={route.params.clientId} navigate={navigate}/>;
+      case 'client-calc':      return <AdminClientCalc state={state} theme={theme} clientId={route.params.clientId} navigate={navigate} onSetCadence={setCadence}/>;
       case 'add-client':       return <AdminAddClient state={state} theme={theme} navigate={navigate} onSubmit={submitClient} presetFromStripe={route.params.presetFromStripe}/>;
       case 'pending-clients':  return <AdminPendingClients state={state} theme={theme} navigate={navigate}/>;
       case 'questions':   return <AdminOpenQuestions state={state} theme={theme}/>;
@@ -482,7 +508,7 @@ function App() {
             }}>{role === 'CA' ? 'Client Associate' : role === 'Sales' ? 'Sales' : 'Admin'}</div>
             {tabs.map(tb => {
               const active = route.name === tb.name
-                || (tb.name === 'log-picker' && (route.name === 'log-metrics' || route.name === 'log-event' || route.name === 'log-survey'));
+                || (tb.name === 'log-picker' && (route.name === 'log-metrics' || route.name === 'log-event' || route.name === 'log-survey' || route.name === 'log-checkin'));
               return (
                 <button
                   key={tb.name}
@@ -584,7 +610,7 @@ function App() {
       }}>
         {tabs.map(tb => {
           const active = route.name === tb.name
-            || (tb.name === 'log-picker' && (route.name === 'log-metrics' || route.name === 'log-event' || route.name === 'log-survey'));
+            || (tb.name === 'log-picker' && (route.name === 'log-metrics' || route.name === 'log-event' || route.name === 'log-survey' || route.name === 'log-checkin'));
           return (
             <button
               key={tb.name}
@@ -934,6 +960,7 @@ function OfflineScreen({ onRetry }) {
 
 function LogPickerSheet({ theme, onClose, onPick }) {
   const items = [
+    { name: 'log-checkin', icon: 'edit',      label: 'Check-in',        desc: 'Concern, win, account + agency actions' },
     { name: 'log-metrics', icon: 'chart',     label: 'Monthly metrics', desc: 'Leads, ad spend, MRR, attrition' },
     { name: 'log-event',   icon: 'cal',       label: 'Growth event',    desc: 'Workshop, gear sale, milestone' },
     { name: 'log-survey',  icon: 'star',      label: 'Client survey',   desc: 'Satisfaction snapshot' },
