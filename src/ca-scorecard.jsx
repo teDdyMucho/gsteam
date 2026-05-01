@@ -51,7 +51,93 @@ function CAScorecard({ state, ca, theme, viz = 'rings' }) {
 
       {/* Bucket breakdown — always shown below */}
       <BucketBreakdown score={score} state={state} theme={theme} />
+
+      {/* Debug panel — diagnoses why bookCompleteness / composite look off.
+          Shows raw qStart/qEnd, expected vs filled, and sample month values
+          so we can spot date-format mismatches or wrong quarter windows. */}
+      <ScorecardDebug score={score} ca={ca} state={state} theme={theme} />
     </div>
+  );
+}
+
+function ScorecardDebug({ score, ca, state, theme }) {
+  const [open, setOpen] = React.useState(false);
+  const d = score.debug || {};
+  const cfg = (state && state.config) || {};
+  const inferredQStartFromConfig = cfg.quarterStart || cfg.quarter_start || '(unset → fell back to current-quarter default)';
+  const inferredQEndFromConfig   = cfg.quarterEnd   || cfg.quarter_end   || '(unset → fell back to qStart, monthsInQuarter=1)';
+  const completenessPct = (score.bookCompleteness * 100).toFixed(2) + '%';
+
+  const rows = [
+    ['CA', ca && ca.id],
+    ['Today', d.todayIso],
+    ['Quarter window (used)', `${d.qStartIso}  →  ${d.qEndIso}`],
+    ['Quarter window (config raw)', `${inferredQStartFromConfig}  →  ${inferredQEndFromConfig}`],
+    ['Months in quarter', d.monthsInQuarter],
+    ['Active clients for this CA', d.clientCount],
+    ['Expected (clients × months)', d.expected],
+    ['Filled (metrics in window)', d.filled],
+    ['Completeness', `${d.filled}/${d.expected}  =  ${completenessPct}`],
+    ['Total metrics for this CA (any month)', d.totalMyMetrics],
+    ['Sample m.month — IN window', JSON.stringify(d.sampleMonthsInWindow || [])],
+    ['Sample m.month — ALL for this CA', JSON.stringify(d.sampleMonthsAll || [])],
+    ['Type of m.month', d.sampleMetricMonthType],
+    ['First metric row keys', JSON.stringify(d.sampleMetricShape || [])],
+    ['Config keys present', JSON.stringify(d.configKeys || [])],
+    ['cfg.quarterStart (camelCase)', String(d.cfgQuarterStart)],
+    ['cfg.quarterEnd (camelCase)', String(d.cfgQuarterEnd)],
+    ['cfg.quarter_start (snake — should be undefined)', String(d.cfgQuarterStartSnake)],
+    ['cfg.quarter_end (snake — should be undefined)', String(d.cfgQuarterEndSnake)],
+  ];
+
+  const flags = [];
+  if (!cfg.quarterStart && !cfg.quarter_start) flags.push('quarterStart missing from config — using fallback.');
+  if (!cfg.quarterEnd   && !cfg.quarter_end)   flags.push('quarterEnd missing from config — qEnd defaulted to qStart, so monthsInQuarter=1.');
+  if (cfg.quarter_start || cfg.quarter_end)    flags.push('Snake_case quarter_* present on config — toUI() should have converted these. Check api.jsx.');
+  if (d.totalMyMetrics > 0 && d.filled === 0)  flags.push('CA has metrics but NONE land in window — likely month-format / window-boundary mismatch.');
+  if (d.expected > 0 && d.expected > d.clientCount * 4) flags.push('Expected > clients × 4 — quarter window probably extends beyond reasonable range.');
+  if (d.sampleMonthsAll && d.sampleMonthsAll.some(m => typeof m === 'string' && m.length === 7)) {
+    flags.push('At least one m.month is "YYYY-MM" (length 7). Lex compare against "YYYY-MM-DD" excludes it.');
+  }
+
+  return (
+    <Card theme={theme} padding={0}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', padding: '12px 16px', background: 'transparent', border: 'none',
+          display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+          fontFamily: 'inherit', textAlign: 'left',
+        }}>
+        <span style={{ width: 8, height: 8, borderRadius: 4, background: theme.inkMuted, flexShrink: 0 }}/>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: theme.ink, letterSpacing: -0.1 }}>
+          Debug · scoring inputs
+        </span>
+        <span style={{ fontSize: 12, color: theme.inkMuted }}>{open ? 'hide' : 'show'}</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 16px 14px', fontSize: 12, lineHeight: 1.5, color: theme.inkSoft }}>
+          {flags.length > 0 && (
+            <div style={{
+              borderTop: `1px solid ${theme.rule}`, paddingTop: 10, marginBottom: 10,
+            }}>
+              <div style={{ fontWeight: 700, color: STATUS.red, marginBottom: 4 }}>Suspected issues</div>
+              {flags.map((f, i) => (
+                <div key={i} style={{ color: STATUS.red, fontSize: 12 }}>· {f}</div>
+              ))}
+            </div>
+          )}
+          <div style={{ borderTop: `1px solid ${theme.rule}` }}/>
+          {rows.map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', gap: 12, padding: '6px 0', borderBottom: `1px solid ${theme.rule}` }}>
+              <span style={{ flex: '0 0 42%', color: theme.inkMuted }}>{k}</span>
+              <span style={{ flex: 1, fontFamily: 'ui-monospace, Menlo, monospace', color: theme.ink, wordBreak: 'break-all' }}>
+                {v == null ? '—' : String(v)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -211,4 +297,4 @@ function BucketBreakdown({ score, state, theme }) {
   );
 }
 
-Object.assign(window, { CAScorecard, RingsViz, BarsViz, ComposeViz, BucketBreakdown });
+Object.assign(window, { CAScorecard, RingsViz, BarsViz, ComposeViz, BucketBreakdown, ScorecardDebug });

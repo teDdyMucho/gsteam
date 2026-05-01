@@ -198,16 +198,40 @@ function caScorecard(ca, state) {
 
   const monthsInQuarter = Math.max(monthsBetween(qStartIso, qEndIso) + 1, 1);
   const expected = myClients.length * monthsInQuarter;
-  const filled = allMetrics.filter(m => {
+  const myMetrics = allMetrics.filter(m => {
     const c = allClients.find(cl => cl.id === m.clientId);
-    return c && c.assignedCA === ca.id && m.month >= qStartIso && m.month <= qEndIso;
-  }).length;
+    return c && c.assignedCA === ca.id;
+  });
+  const inWindow = myMetrics.filter(m => m.month >= qStartIso && m.month <= qEndIso);
+  const filled = inWindow.length;
   const bookCompleteness = expected > 0 ? clamp(filled / expected, 0, 1) : 1;
 
   const composite = (performance * bookCompleteness + retention + growth) / 3;
   const maxPayout = 7500;
   const safeComposite = Number.isFinite(composite) ? composite : 0;
   const finalPayout = Math.round(safeComposite * maxPayout);
+
+  // Diagnostic payload — surfaced by the Scorecard debug panel so we can see
+  // which input is wrong when the composite looks off (window dates, month
+  // format mismatches, missing config, snake_case keys leaking through, etc).
+  const sampleMonthsAll = Array.from(new Set(myMetrics.map(m => m && m.month).filter(Boolean))).sort();
+  const sampleMonthsInWindow = Array.from(new Set(inWindow.map(m => m.month))).sort();
+  const debug = {
+    qStartIso, qEndIso, monthsInQuarter,
+    todayIso: todayIso(),
+    clientCount: myClients.length,
+    expected, filled,
+    totalMyMetrics: myMetrics.length,
+    sampleMonthsAll: sampleMonthsAll.slice(0, 12),
+    sampleMonthsInWindow: sampleMonthsInWindow.slice(0, 12),
+    configKeys: Object.keys(cfg || {}),
+    cfgQuarterStart: cfg.quarterStart,
+    cfgQuarterEnd: cfg.quarterEnd,
+    cfgQuarterStartSnake: cfg.quarter_start,
+    cfgQuarterEndSnake: cfg.quarter_end,
+    sampleMetricShape: myMetrics[0] ? Object.keys(myMetrics[0]) : [],
+    sampleMetricMonthType: myMetrics[0] ? typeof myMetrics[0].month : 'n/a',
+  };
 
   return {
     composite: safeComposite,
@@ -217,6 +241,7 @@ function caScorecard(ca, state) {
     retention:   Number.isFinite(retention)   ? retention   : 0,
     growth:      Number.isFinite(growth)      ? growth      : 0,
     clients: subs,
+    debug,
   };
 }
 
